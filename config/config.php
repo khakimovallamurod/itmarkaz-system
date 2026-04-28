@@ -30,7 +30,7 @@ class Database
 
 function clean_input(?string $value): string
 {
-    return trim((string) $value);
+    return trim(html_entity_decode((string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 }
 
 function normalize_uz_phone(?string $value): ?string

@@ -11,6 +11,19 @@ $db = (new Database())->connect();
 ensure_system_schema($db);
 ensure_mentor_module_schema($db);
 
+$decodeEntities = static function ($value) use (&$decodeEntities) {
+    if (is_array($value)) {
+        foreach ($value as $k => $v) {
+            $value[$k] = $decodeEntities($v);
+        }
+        return $value;
+    }
+    if (is_string($value)) {
+        return html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    return $value;
+};
+
 $currentPage = $_GET['page'] ?? 'dashboard';
 $allowedPages = [
     'dashboard',
@@ -38,6 +51,8 @@ require __DIR__ . '/layout.php';
 
 $pageData = load_page_data($db, $currentPage, $_GET);
 $pageOptions = load_page_options($db, $currentPage);
+$pageData = $decodeEntities($pageData);
+$pageOptions = $decodeEntities($pageOptions);
 ?>
 <!doctype html>
 <html lang="uz">
