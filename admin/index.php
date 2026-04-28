@@ -4,6 +4,13 @@ if (!isset($_SESSION['admin_id'])) {
     header('Location: ../index.php');
     exit;
 }
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/data_provider.php';
+
+$db = (new Database())->connect();
+ensure_system_schema($db);
+ensure_mentor_module_schema($db);
+
 $currentPage = $_GET['page'] ?? 'dashboard';
 $allowedPages = [
     'dashboard',
@@ -28,6 +35,9 @@ if (!in_array($currentPage, $allowedPages, true)) {
     $currentPage = 'dashboard';
 }
 require __DIR__ . '/layout.php';
+
+$pageData = load_page_data($db, $currentPage, $_GET);
+$pageOptions = load_page_options($db, $currentPage);
 ?>
 <!doctype html>
 <html lang="uz">
@@ -187,11 +197,11 @@ require __DIR__ . '/layout.php';
     </div>
 </div>
 
-<div id="loadingSpinner" class="hidden fixed inset-0 bg-black/20 z-50 items-center justify-center">
-    <div class="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-</div>
-
 <script>window.CURRENT_PAGE = '<?= $currentPage; ?>';</script>
+<script>
+window.PAGE_OPTIONS = <?= json_encode($pageOptions, JSON_UNESCAPED_UNICODE); ?>;
+window.PAGE_DATA = <?= json_encode($pageData, JSON_UNESCAPED_UNICODE); ?>;
+</script>
 <script src="../assets/js/app.js"></script>
 </body>
 </html>

@@ -13,7 +13,11 @@ class Database
             return $this->conn;
         }
 
-        $this->conn = new mysqli($this->host, $this->user, $this->pass, $this->name);
+        $persistentHost = str_starts_with($this->host, 'p:') ? $this->host : 'p:' . $this->host;
+        $this->conn = @new mysqli($persistentHost, $this->user, $this->pass, $this->name);
+        if ($this->conn->connect_error) {
+            $this->conn = new mysqli($this->host, $this->user, $this->pass, $this->name);
+        }
         if ($this->conn->connect_error) {
             http_response_code(500);
             die('Database ulanishda xatolik: ' . $this->conn->connect_error);
@@ -341,6 +345,25 @@ function ensure_system_schema(mysqli $db): void
         $db->query("ALTER TABLE course_students ADD COLUMN status ENUM('active', 'completed') NOT NULL DEFAULT 'active' AFTER room_id");
     } else {
         $db->query("ALTER TABLE course_students MODIFY COLUMN status ENUM('active', 'completed') NOT NULL DEFAULT 'active'");
+    }
+
+    if (!$indexExists('student_status', 'idx_student_status_student')) {
+        $db->query('ALTER TABLE student_status ADD INDEX idx_student_status_student (student_id)');
+    }
+    if (!$indexExists('student_status', 'idx_student_status_status')) {
+        $db->query('ALTER TABLE student_status ADD INDEX idx_student_status_status (status_id)');
+    }
+    if (!$indexExists('course_students', 'idx_course_students_student')) {
+        $db->query('ALTER TABLE course_students ADD INDEX idx_course_students_student (student_id)');
+    }
+    if (!$indexExists('course_students', 'idx_course_students_course')) {
+        $db->query('ALTER TABLE course_students ADD INDEX idx_course_students_course (course_id)');
+    }
+    if (!$indexExists('competition_participants', 'idx_competition_participants_competition')) {
+        $db->query('ALTER TABLE competition_participants ADD INDEX idx_competition_participants_competition (competition_id)');
+    }
+    if (!$indexExists('competition_results', 'idx_competition_results_competition')) {
+        $db->query('ALTER TABLE competition_results ADD INDEX idx_competition_results_competition (competition_id)');
     }
     } finally {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);

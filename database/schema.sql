@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS student_status (
   student_id INT UNSIGNED NOT NULL,
   status_id INT UNSIGNED NOT NULL,
   UNIQUE KEY uq_student_status (student_id, status_id),
+  INDEX idx_student_status_student (student_id),
   INDEX idx_student_status_status (status_id),
   CONSTRAINT fk_student_status_student FOREIGN KEY (student_id)
     REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -86,6 +87,7 @@ CREATE TABLE IF NOT EXISTS course_students (
   status ENUM('active', 'completed') NOT NULL DEFAULT 'active',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_course_student (student_id, course_id),
+  INDEX idx_course_students_student (student_id),
   INDEX idx_course_students_course (course_id),
   CONSTRAINT fk_course_students_student FOREIGN KEY (student_id)
     REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -124,6 +126,7 @@ CREATE TABLE IF NOT EXISTS competition_participants (
   student_id INT UNSIGNED NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_competition_participant (competition_id, student_id),
+  INDEX idx_competition_participants_competition (competition_id),
   INDEX idx_competition_participants_student (student_id),
   CONSTRAINT fk_competition_participants_competition FOREIGN KEY (competition_id)
     REFERENCES competitions(id) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -139,6 +142,7 @@ CREATE TABLE IF NOT EXISTS competition_results (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_competition_student_result (competition_id, student_id),
   UNIQUE KEY uq_competition_position_result (competition_id, position),
+  INDEX idx_competition_results_competition (competition_id),
   INDEX idx_competition_results_student (student_id),
   CONSTRAINT fk_competition_results_competition FOREIGN KEY (competition_id)
     REFERENCES competitions(id) ON DELETE CASCADE ON UPDATE CASCADE,

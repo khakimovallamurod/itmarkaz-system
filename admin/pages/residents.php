@@ -1,15 +1,23 @@
+<?php
+$items = $pageData['items'] ?? [];
+$pagination = $pageData['pagination'] ?? ['page' => 1, 'pages' => 1];
+$filters = $pageData['filters'] ?? ['search' => '', 'status' => ''];
+$rooms = $pageOptions['rooms'] ?? [];
+?>
 <div class="p-4 space-y-4">
-    <div class="bg-white rounded-xl p-4 shadow flex flex-wrap gap-2 items-center justify-between">
-        <h2 class="font-semibold">Rezidentlar</h2>
+    <form method="get" class="bg-white rounded-xl p-4 shadow flex flex-wrap gap-2 items-center justify-between">
+        <input type="hidden" name="page" value="residents">
         <div class="flex flex-wrap gap-2">
-            <input id="residentSearch" class="border rounded px-3 py-2" placeholder="Qidirish...">
-            <select id="residentStatusFilter" class="border rounded px-3 py-2">
+            <input name="search" value="<?= htmlspecialchars($filters['search'] ?? ''); ?>" class="border rounded px-3 py-2" placeholder="Qidirish...">
+            <select name="status" class="border rounded px-3 py-2">
                 <option value="">Barchasi</option>
-                <option value="assigned">Xona berilgan</option>
-                <option value="unassigned">Xona berilmagan</option>
+                <option value="assigned" <?= (($filters['status'] ?? '') === 'assigned') ? 'selected' : ''; ?>>Xona berilgan</option>
+                <option value="unassigned" <?= (($filters['status'] ?? '') === 'unassigned') ? 'selected' : ''; ?>>Xona berilmagan</option>
             </select>
+            <button class="px-4 py-2 border rounded">Filter</button>
         </div>
-    </div>
+    </form>
+
     <div class="bg-white rounded-xl p-4 shadow overflow-auto">
         <div class="table-shell">
             <table class="admin-table">
@@ -20,9 +28,36 @@
                     <col style="width: 22%;">
                 </colgroup>
                 <thead><tr><th>FIO</th><th>Xona</th><th>Kompyuter</th><th>Actions</th></tr></thead>
-                <tbody id="residentsTableBody"></tbody>
+                <tbody>
+                <?php if (!$items): ?>
+                    <tr><td colspan="4" class="text-center text-slate-500">Ma'lumot topilmadi</td></tr>
+                <?php endif; ?>
+                <?php foreach ($items as $item): ?>
+                    <?php $itemJson = htmlspecialchars(json_encode($item, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>
+                    <tr>
+                        <td><?= htmlspecialchars($item['fio']); ?></td>
+                        <td><?= htmlspecialchars($item['room_number'] ?: '-'); ?></td>
+                        <td><?= htmlspecialchars($item['computer_number'] ?: '-'); ?></td>
+                        <td>
+                            <div class="table-actions">
+                                <button type="button" class="js-resident-open px-2 py-1 text-xs border rounded" data-item="<?= $itemJson; ?>">Xona berish</button>
+                                <?php if (!empty($item['id'])): ?>
+                                    <button type="button" class="js-resident-delete px-2 py-1 text-xs bg-red-500 text-white rounded" data-id="<?= (int) $item['id']; ?>">Delete</button>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
             </table>
         </div>
+        <?php if (($pagination['pages'] ?? 1) > 1): ?>
+            <div class="mt-3 flex gap-2 flex-wrap">
+                <?php for ($i = 1; $i <= (int) $pagination['pages']; $i++): ?>
+                    <a class="px-3 py-1 border rounded <?= $i === (int) $pagination['page'] ? 'bg-green-600 text-white' : ''; ?>" href="?<?= htmlspecialchars(http_build_query(['page' => 'residents', 'p' => $i, 'search' => $filters['search'] ?? '', 'status' => $filters['status'] ?? ''])); ?>"><?= $i; ?></a>
+                <?php endfor; ?>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -37,7 +72,12 @@
             </label>
             <label class="form-field">
                 <span class="form-label">Xona</span>
-                <select name="room_id" id="residentRoomSelect" class="form-input"></select>
+                <select name="room_id" id="residentRoomSelect" class="form-input">
+                    <option value="">Xona tanlang</option>
+                    <?php foreach ($rooms as $room): ?>
+                        <option value="<?= (int) $room['id']; ?>"><?= htmlspecialchars($room['room_number']); ?></option>
+                    <?php endforeach; ?>
+                </select>
             </label>
             <label class="form-field">
                 <span class="form-label">Kompyuter raqami</span>
