@@ -1,7 +1,13 @@
 <?php
 $items = $pageData['items'] ?? [];
 $pagination = $pageData['pagination'] ?? ['page' => 1, 'pages' => 1];
+$filters = $pageData['filters'] ?? ['level' => ''];
 $studentOptions = $pageOptions['student_options'] ?? [];
+$teamLevels = [
+    'junior' => 'Junior',
+    'middle' => 'Middle',
+    'senior' => 'Senior',
+];
 ?>
 <div class="p-4 space-y-4">
     <div class="bg-white rounded-xl p-4 shadow flex flex-wrap gap-2 items-center justify-between">
@@ -9,11 +15,40 @@ $studentOptions = $pageOptions['student_options'] ?? [];
         <button id="openTeamCreateModalBtn" class="px-4 py-2 bg-emerald-800 text-white rounded">+ Jamoa yaratish</button>
     </div>
 
+    <form method="get" class="bg-white rounded-xl p-4 shadow">
+        <input type="hidden" name="page" value="teams">
+        <div class="grid md:grid-cols-3 gap-3">
+            <label class="form-field">
+                <span class="form-label">Jamoa darajasi filtri</span>
+                <select name="level" class="form-input">
+                    <option value="">Barcha darajalar</option>
+                    <?php foreach ($teamLevels as $levelKey => $levelLabel): ?>
+                        <option value="<?= $levelKey; ?>" <?= (($filters['level'] ?? '') === $levelKey) ? 'selected' : ''; ?>><?= $levelLabel; ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <div class="form-field">
+                <span class="form-label opacity-0 select-none">Action</span>
+                <a href="?page=teams" class="px-4 py-2 border rounded inline-flex items-center justify-center">Tozalash</a>
+            </div>
+        </div>
+    </form>
+
     <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
         <?php if (!$items): ?><p class="text-sm text-slate-500">Jamoalar mavjud emas.</p><?php endif; ?>
         <?php foreach ($items as $team): ?>
             <article class="rounded-xl bg-white p-4 shadow border border-slate-100">
-                <div class="flex items-start justify-between gap-2"><h3 class="font-semibold text-slate-900"><?= htmlspecialchars($team['team_name']); ?></h3><button type="button" class="js-team-delete text-xs px-2 py-1 rounded bg-red-500 text-white" data-id="<?= (int)$team['id']; ?>">O'chirish</button></div>
+                <div class="flex items-start justify-between gap-2">
+                    <h3 class="font-semibold text-slate-900"><?= htmlspecialchars($team['team_name']); ?></h3>
+                    <div class="flex items-center gap-2">
+                        <select class="form-input py-1 px-2 text-xs min-w-[110px] js-team-level-change" data-id="<?= (int) $team['id']; ?>">
+                            <?php foreach ($teamLevels as $levelKey => $levelLabel): ?>
+                                <option value="<?= $levelKey; ?>" <?= (($team['level'] ?? 'middle') === $levelKey) ? 'selected' : ''; ?>><?= $levelLabel; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="js-team-delete text-xs px-2 py-1 rounded bg-red-500 text-white" data-id="<?= (int)$team['id']; ?>">O'chirish</button>
+                    </div>
+                </div>
                 <p class="text-xs text-slate-500 mt-1">A'zolar: <?= count($team['members'] ?? []); ?></p>
                 <div class="mt-3 space-y-2 max-h-44 overflow-auto">
                     <?php if (empty($team['members'])): ?><p class="text-sm text-slate-500">Hali a'zo qo'shilmagan</p><?php endif; ?>
@@ -25,7 +60,7 @@ $studentOptions = $pageOptions['student_options'] ?? [];
             </article>
         <?php endforeach; ?>
     </div>
-    <?php if (($pagination['pages'] ?? 1) > 1): ?><div class="flex gap-2 flex-wrap"><?php for($i=1;$i<=(int)$pagination['pages'];$i++): ?><a class="px-3 py-1 border rounded <?= $i === (int)$pagination['page'] ? 'bg-green-600 text-white' : ''; ?>" href="?<?= htmlspecialchars(http_build_query(['page'=>'teams','p'=>$i])); ?>"><?= $i; ?></a><?php endfor; ?></div><?php endif; ?>
+    <?php if (($pagination['pages'] ?? 1) > 1): ?><div class="flex gap-2 flex-wrap"><?php for($i=1;$i<=(int)$pagination['pages'];$i++): ?><a class="px-3 py-1 border rounded <?= $i === (int)$pagination['page'] ? 'bg-green-600 text-white' : ''; ?>" href="?<?= htmlspecialchars(http_build_query(['page'=>'teams','p'=>$i,'level'=>$filters['level'] ?? ''])); ?>"><?= $i; ?></a><?php endfor; ?></div><?php endif; ?>
 </div>
 
 <div id="teamModal" class="admin-modal hidden fixed inset-0 bg-black/40 z-50 items-center justify-center p-4">
@@ -33,6 +68,7 @@ $studentOptions = $pageOptions['student_options'] ?? [];
         <h3 class="font-bold mb-3">Jamoa yaratish</h3>
         <form id="teamForm" class="form-grid">
             <label class="form-field"><span class="form-label">Jamoa nomi</span><input name="team_name" class="form-input" placeholder="Masalan: Team Falcon" required></label>
+            <label class="form-field"><span class="form-label">Jamoa darajasi</span><select name="level" class="form-input" required><option value="junior">Junior</option><option value="middle" selected>Middle</option><option value="senior">Senior</option></select></label>
             <div class="form-field">
                 <div class="flex items-center justify-between gap-2"><span class="form-label">Talabalar</span><button type="button" id="addTeamStudentSelectBtn" class="h-8 w-8 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 flex items-center justify-center" title="Yana talaba qo'shish">+</button></div>
                 <div id="teamStudentSelectors" class="space-y-2"></div>

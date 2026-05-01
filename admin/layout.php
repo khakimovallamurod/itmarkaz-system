@@ -14,6 +14,7 @@ $pageMeta = [
     'schedule' => ['title' => 'Ish Jadvali', 'subtitle' => 'Kunlik va haftalik reja boshqaruvi'],
     'statistics' => ['title' => 'Statistika', 'subtitle' => 'Asosiy ko\'rsatkichlar va top natijalar'],
     'teams' => ['title' => 'Upwork Jamoa', 'subtitle' => 'Jamoalarni yaratish va a\'zolarni boshqarish'],
+    'projects' => ['title' => 'Loyihalar', 'subtitle' => 'Loyihalarni yaratish va status bo\'yicha boshqarish'],
     'directions' => ['title' => 'Sozlamalar', 'subtitle' => 'Yo\'nalishlarni boshqarish'],
     'statuses' => ['title' => 'Sozlamalar', 'subtitle' => 'Statuslarni boshqarish'],
 ];

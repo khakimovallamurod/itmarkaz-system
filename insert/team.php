@@ -2,11 +2,15 @@
 require_once __DIR__ . '/../api/bootstrap.php';
 
 $teamName = clean_input($_POST['team_name'] ?? '');
+$level = clean_input($_POST['level'] ?? 'middle');
 $studentIds = $_POST['student_ids'] ?? [];
 $studentIds = array_values(array_unique(array_filter(array_map('intval', (array) $studentIds), static fn ($id) => $id > 0)));
 
 if ($teamName === '') {
     json_response(false, 'Jamoa nomi majburiy');
+}
+if (!in_array($level, ['junior', 'middle', 'senior'], true)) {
+    json_response(false, 'Jamoa darajasi noto\'g\'ri.');
 }
 if (!$studentIds) {
     json_response(false, 'Kamida bitta talaba tanlang');
@@ -14,8 +18,8 @@ if (!$studentIds) {
 
 $db->begin_transaction();
 try {
-    $stmt = $db->prepare('INSERT INTO teams (team_name) VALUES (?)');
-    $stmt->bind_param('s', $teamName);
+    $stmt = $db->prepare('INSERT INTO teams (team_name, level) VALUES (?, ?)');
+    $stmt->bind_param('ss', $teamName, $level);
     $stmt->execute();
     $teamId = (int) $db->insert_id;
 

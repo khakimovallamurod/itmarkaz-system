@@ -1,25 +1,39 @@
 <?php
 require_once __DIR__ . '/../api/bootstrap.php';
 $id = (int) ($_POST['id'] ?? 0);
-$position = (int) ($_POST['position'] ?? 0);
-if ($id < 1 || !in_array($position, [1, 2, 3], true)) json_response(false, 'Xato parametr');
+$awardTypeId = (int) ($_POST['award_type_id'] ?? 0);
+$positionRaw = clean_input($_POST['position'] ?? '');
+$position = $positionRaw === '' ? null : (int) $positionRaw;
+$cashRaw = clean_input($_POST['cash_amount'] ?? '');
+$cashAmount = $cashRaw === '' ? null : (float) $cashRaw;
 
-$competitionStmt = $db->prepare('SELECT competition_id, student_id FROM competition_results WHERE id = ? LIMIT 1');
-$competitionStmt->bind_param('i', $id);
-$competitionStmt->execute();
-$row = $competitionStmt->get_result()->fetch_assoc();
-if (!$row) {
-    json_response(false, 'Natija topilmadi.');
+if ($id < 1 || $awardTypeId < 1) {
+    json_response(false, 'Xato parametr');
+}
+if ($position !== null && ($position < 1 || $position > 5)) {
+    json_response(false, 'O\'rin 1 dan 5 gacha bo\'lishi kerak yoki bo\'sh qoldiriladi.');
+}
+if ($cashAmount !== null && $cashAmount < 0) {
+    json_response(false, 'Pul miqdori manfiy bo\'lishi mumkin emas.');
 }
 
-$positionConflictStmt = $db->prepare('SELECT id FROM competition_results WHERE competition_id = ? AND position = ? AND id <> ? LIMIT 1');
-$positionConflictStmt->bind_param('iii', $row['competition_id'], $position, $id);
-$positionConflictStmt->execute();
-if ($positionConflictStmt->get_result()->fetch_assoc()) {
-    json_response(false, 'Ushbu o\'rin allaqachon band.');
+$typeStmt = $db->prepare('SELECT id, code FROM competition_result_types WHERE id = ? LIMIT 1');
+$typeStmt->bind_param('i', $awardTypeId);
+$typeStmt->execute();
+$type = $typeStmt->get_result()->fetch_assoc();
+if (!$type) {
+    json_response(false, 'Mukofot turi topilmadi.');
+}
+if (($type['code'] ?? '') === 'cash' && $cashAmount === null) {
+    json_response(false, 'Pul miqdorini kiriting.');
+}
+if (($type['code'] ?? '') !== 'cash') {
+    $cashAmount = null;
 }
 
-$stmt = $db->prepare('UPDATE competition_results SET position=? WHERE id=?');
-$stmt->bind_param('ii', $position, $id);
+$stmt = $db->prepare("UPDATE competition_results SET award_type_id = ?, cash_amount = NULLIF(?, ''), position = NULLIF(?, '') WHERE id = ?");
+$cashParam = $cashAmount === null ? '' : (string) $cashAmount;
+$positionParam = $position === null ? '' : (string) $position;
+$stmt->bind_param('issi', $awardTypeId, $cashParam, $positionParam, $id);
 $stmt->execute();
 json_response(true, 'Natija yangilandi');

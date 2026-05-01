@@ -101,8 +101,10 @@ function load_page_options(mysqli $db, string $page): array
     $needsStatuses = in_array($page, ['students'], true);
     $needsRooms = in_array($page, ['residents', 'course_students'], true);
     $needsCourses = in_array($page, ['course_students', 'mentors'], true);
-    $needsResidentStudents = in_array($page, ['mentors'], true);
-    $needsStudentOptions = in_array($page, ['teams', 'competition_detail'], true);
+    $needsResidentStudents = in_array($page, ['mentors', 'residents'], true);
+    $needsCourseStudentOptions = in_array($page, ['course_students'], true);
+    $needsCompetitionResultTypes = in_array($page, ['competition_detail'], true);
+    $needsStudentOptions = in_array($page, ['teams', 'projects', 'competition_detail'], true);
     $needsWeekDays = in_array($page, ['courses'], true);
 
     if ($needsDirections) {
@@ -122,16 +124,46 @@ function load_page_options(mysqli $db, string $page): array
         $options['courses'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
     }
     if ($needsResidentStudents) {
+        if ($page === 'mentors') {
+            $sql = "
+              SELECT DISTINCT s.id, s.fio
+              FROM students s
+              JOIN student_status ss ON ss.student_id = s.id
+              JOIN statuses st ON st.id = ss.status_id
+              WHERE LOWER(TRIM(st.name)) = LOWER('Rezident')
+              ORDER BY s.fio ASC
+            ";
+        } else {
+            $sql = "
+              SELECT s.id, s.fio, CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS is_assigned
+              FROM students s
+              LEFT JOIN residents r ON r.student_id = s.id
+              ORDER BY s.fio ASC
+            ";
+        }
+        $res = $db->query($sql);
+        $options['resident_students'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    }
+    if ($needsCourseStudentOptions) {
         $sql = "
-          SELECT DISTINCT s.id, s.fio
+          SELECT s.id, s.fio, CASE WHEN csm.student_id IS NULL THEN 0 ELSE 1 END AS is_assigned
           FROM students s
-          JOIN student_status ss ON ss.student_id = s.id
-          JOIN statuses st ON st.id = ss.status_id
-          WHERE LOWER(TRIM(st.name)) = LOWER('Rezident')
+          LEFT JOIN (
+            SELECT DISTINCT student_id
+            FROM course_students
+          ) csm ON csm.student_id = s.id
           ORDER BY s.fio ASC
         ";
         $res = $db->query($sql);
-        $options['resident_students'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        $options['course_students_options'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    }
+    if ($needsCompetitionResultTypes) {
+        try {
+            $res = $db->query('SELECT id, code, name FROM competition_result_types ORDER BY sort_order ASC, id ASC');
+            $options['competition_result_types'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        } catch (Throwable $e) {
+            $options['competition_result_types'] = [];
+        }
     }
     if ($needsStudentOptions) {
         $res = $db->query('SELECT id, fio FROM students ORDER BY fio ASC');
@@ -215,8 +247,6 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $countSql = "
           SELECT COUNT(DISTINCT s.id) cnt
           FROM students s
-          JOIN student_status ss ON ss.student_id=s.id
-          JOIN statuses st ON st.id=ss.status_id AND LOWER(TRIM(st.name))=LOWER('Rezident')
           LEFT JOIN residents r ON r.student_id=s.id
           WHERE s.fio LIKE ? {$statusSql}
         ";
@@ -229,8 +259,6 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $sql = "
           SELECT DISTINCT r.id, s.id AS student_id, s.fio, rm.id AS room_id, rm.room_number, r.computer_number
           FROM students s
-          JOIN student_status ss ON ss.student_id=s.id
-          JOIN statuses st ON st.id=ss.status_id AND LOWER(TRIM(st.name))=LOWER('Rezident')
           LEFT JOIN residents r ON r.student_id=s.id
           LEFT JOIN rooms rm ON rm.id=r.room_id
           WHERE s.fio LIKE ? {$statusSql}
@@ -255,8 +283,6 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $countSql = "
           SELECT COUNT(DISTINCT s.id) cnt
           FROM students s
-          JOIN student_status ss ON ss.student_id=s.id
-          JOIN statuses st ON st.id=ss.status_id AND LOWER(TRIM(st.name))=LOWER('Kurs o''quvchi')
           LEFT JOIN course_students cs ON cs.student_id=s.id
           WHERE s.fio LIKE ? {$statusSql}
         ";
@@ -271,10 +297,8 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $meta = paginate_meta($total, $pageNum, $perPage);
 
         $sql = "
-          SELECT DISTINCT s.id AS student_id, s.fio, cs.id, cs.course_id, c.name AS course_name, cs.room_id, r.room_number, COALESCE(cs.status,'active') AS status
+          SELECT DISTINCT s.id AS student_id, s.fio, cs.id, cs.course_id, c.name AS course_name, cs.room_id, r.room_number, cs.status
           FROM students s
-          JOIN student_status ss ON ss.student_id=s.id
-          JOIN statuses st ON st.id=ss.status_id AND LOWER(TRIM(st.name))=LOWER('Kurs o''quvchi')
           LEFT JOIN course_students cs ON cs.student_id=s.id
           LEFT JOIN courses c ON c.id=cs.course_id
           LEFT JOIN rooms r ON r.id=cs.room_id
@@ -329,15 +353,147 @@ function load_page_data(mysqli $db, string $page, array $input): array
     }
 
     if ($page === 'competitions') {
+        $dateFrom = qp_str($input, 'date_from');
+        $dateTo = qp_str($input, 'date_to');
+        $period = qp_str($input, 'period');
         $pageNum = qp_int($input, 'p', 1, 1);
         $perPage = 9;
-        $totalRes = $db->query('SELECT COUNT(*) cnt FROM competitions');
-        $total = (int) (($totalRes ? $totalRes->fetch_assoc()['cnt'] : 0) ?? 0);
+
+        $whereParts = [];
+        $hasFrom = false;
+        $hasTo = false;
+
+        if ($period === 'past') {
+            $whereParts[] = 'c.competition_date < CURDATE()';
+        } elseif ($period === 'upcoming_15') {
+            $whereParts[] = 'c.competition_date >= CURDATE() AND c.competition_date <= DATE_ADD(CURDATE(), INTERVAL 15 DAY)';
+        } elseif ($period === 'upcoming_after_15') {
+            $whereParts[] = 'c.competition_date > DATE_ADD(CURDATE(), INTERVAL 15 DAY)';
+        } else {
+            if ($dateFrom !== '') {
+                $whereParts[] = 'c.competition_date >= ?';
+                $hasFrom = true;
+            }
+            if ($dateTo !== '') {
+                $whereParts[] = 'c.competition_date <= ?';
+                $hasTo = true;
+            }
+        }
+
+        $whereSql = $whereParts ? (' WHERE ' . implode(' AND ', $whereParts)) : '';
+        $countStmt = $db->prepare("SELECT COUNT(*) cnt FROM competitions c {$whereSql}");
+        if ($hasFrom && $hasTo) {
+            $countStmt->bind_param('ss', $dateFrom, $dateTo);
+        } elseif ($hasFrom) {
+            $countStmt->bind_param('s', $dateFrom);
+        } elseif ($hasTo) {
+            $countStmt->bind_param('s', $dateTo);
+        }
+        $countStmt->execute();
+        $total = (int) (($countStmt->get_result()->fetch_assoc()['cnt'] ?? 0));
         $meta = paginate_meta($total, $pageNum, $perPage);
-        $stmt = $db->prepare("SELECT c.id, c.name, c.description, c.registration_deadline, c.competition_date, c.location, (SELECT COUNT(*) FROM competition_participants cp WHERE cp.competition_id=c.id) AS participant_count, (SELECT COUNT(*) FROM competition_results cr WHERE cr.competition_id=c.id) AS result_count FROM competitions c ORDER BY c.competition_date DESC, c.id DESC LIMIT ? OFFSET ?");
-        $stmt->bind_param('ii', $meta['per_page'], $meta['offset']);
+
+        $sql = "
+          SELECT
+            c.id, c.name, c.description, c.registration_deadline, c.competition_date, c.location,
+            (SELECT COUNT(*) FROM competition_participants cp WHERE cp.competition_id=c.id) AS participant_count,
+            (SELECT COUNT(*) FROM competition_results cr WHERE cr.competition_id=c.id) AS result_count
+          FROM competitions c
+          {$whereSql}
+          ORDER BY c.competition_date DESC, c.id DESC
+          LIMIT ? OFFSET ?
+        ";
+        $stmt = $db->prepare($sql);
+        if ($hasFrom && $hasTo) {
+            $stmt->bind_param('ssii', $dateFrom, $dateTo, $meta['per_page'], $meta['offset']);
+        } elseif ($hasFrom) {
+            $stmt->bind_param('sii', $dateFrom, $meta['per_page'], $meta['offset']);
+        } elseif ($hasTo) {
+            $stmt->bind_param('sii', $dateTo, $meta['per_page'], $meta['offset']);
+        } else {
+            $stmt->bind_param('ii', $meta['per_page'], $meta['offset']);
+        }
         $stmt->execute();
-        return ['items' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pagination' => $meta];
+
+        $report = [];
+        try {
+            $reportSql = "
+              SELECT
+                COUNT(DISTINCT c.id) AS competitions_count,
+                COUNT(DISTINCT cp.student_id) AS participants_count,
+                COUNT(DISTINCT CASE WHEN crt.code = 'winner' OR cr.position IN (1,2,3) THEN cr.student_id END) AS winners_count
+              FROM competitions c
+              LEFT JOIN competition_participants cp ON cp.competition_id = c.id
+              LEFT JOIN competition_results cr ON cr.competition_id = c.id
+              LEFT JOIN competition_result_types crt ON crt.id = cr.award_type_id
+              {$whereSql}
+            ";
+            $reportStmt = $db->prepare($reportSql);
+            if ($hasFrom && $hasTo) {
+                $reportStmt->bind_param('ss', $dateFrom, $dateTo);
+            } elseif ($hasFrom) {
+                $reportStmt->bind_param('s', $dateFrom);
+            } elseif ($hasTo) {
+                $reportStmt->bind_param('s', $dateTo);
+            }
+            $reportStmt->execute();
+            $report = $reportStmt->get_result()->fetch_assoc() ?: [];
+        } catch (Throwable $e) {
+            try {
+                $fallbackReportSql = "
+                  SELECT
+                    COUNT(DISTINCT c.id) AS competitions_count,
+                    COUNT(DISTINCT cp.student_id) AS participants_count,
+                    COUNT(DISTINCT CASE WHEN cr.position IN (1,2,3) THEN cr.student_id END) AS winners_count
+                  FROM competitions c
+                  LEFT JOIN competition_participants cp ON cp.competition_id = c.id
+                  LEFT JOIN competition_results cr ON cr.competition_id = c.id
+                  {$whereSql}
+                ";
+                $fallbackStmt = $db->prepare($fallbackReportSql);
+                if ($hasFrom && $hasTo) {
+                    $fallbackStmt->bind_param('ss', $dateFrom, $dateTo);
+                } elseif ($hasFrom) {
+                    $fallbackStmt->bind_param('s', $dateFrom);
+                } elseif ($hasTo) {
+                    $fallbackStmt->bind_param('s', $dateTo);
+                }
+                $fallbackStmt->execute();
+                $report = $fallbackStmt->get_result()->fetch_assoc() ?: [];
+            } catch (Throwable $fallbackError) {
+                $report = ['competitions_count' => 0, 'participants_count' => 0, 'winners_count' => 0];
+            }
+        }
+
+        $fetchNames = static function (mysqli $db, string $condition): array {
+            try {
+                $q = "SELECT name FROM competitions WHERE {$condition} ORDER BY competition_date ASC, id ASC LIMIT 30";
+                $res = $db->query($q);
+                if (!$res) {
+                    return [];
+                }
+                return array_map(static fn (array $row): string => (string) ($row['name'] ?? ''), $res->fetch_all(MYSQLI_ASSOC));
+            } catch (Throwable $e) {
+                return [];
+            }
+        };
+        $periodNames = [
+            'past' => $fetchNames($db, 'competition_date < CURDATE()'),
+            'upcoming_15' => $fetchNames($db, 'competition_date >= CURDATE() AND competition_date <= DATE_ADD(CURDATE(), INTERVAL 15 DAY)'),
+            'upcoming_after_15' => $fetchNames($db, 'competition_date > DATE_ADD(CURDATE(), INTERVAL 15 DAY)'),
+        ];
+
+        return [
+            'items' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC),
+            'pagination' => $meta,
+            'filters' => ['date_from' => $dateFrom, 'date_to' => $dateTo, 'period' => $period],
+            'report' => [
+                'competitions_count' => (int) ($report['competitions_count'] ?? 0),
+                'participants_count' => (int) ($report['participants_count'] ?? 0),
+                'winners_count' => (int) ($report['winners_count'] ?? 0),
+                'period_names' => $periodNames,
+            ],
+        ];
     }
 
     if ($page === 'competition_detail') {
@@ -355,7 +511,17 @@ function load_page_data(mysqli $db, string $page, array $input): array
             $pStmt->execute();
             $participants = $pStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-            $rStmt = $db->prepare('SELECT cr.id, cr.student_id, cr.position, s.fio FROM competition_results cr JOIN students s ON s.id=cr.student_id WHERE cr.competition_id=? ORDER BY cr.position ASC');
+            $rStmt = $db->prepare("
+              SELECT cr.id, cr.student_id, cr.position, cr.cash_amount, cr.award_type_id, crt.code AS award_code, crt.name AS award_name, s.fio
+              FROM competition_results cr
+              JOIN students s ON s.id = cr.student_id
+              LEFT JOIN competition_result_types crt ON crt.id = cr.award_type_id
+              WHERE cr.competition_id=?
+              ORDER BY
+                CASE WHEN cr.position IS NULL THEN 1 ELSE 0 END ASC,
+                cr.position ASC,
+                s.fio ASC
+            ");
             $rStmt->bind_param('i', $id);
             $rStmt->execute();
             $results = $rStmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -413,14 +579,26 @@ function load_page_data(mysqli $db, string $page, array $input): array
     }
 
     if ($page === 'teams') {
+        $level = qp_str($input, 'level');
         $pageNum = qp_int($input, 'p', 1, 1);
         $perPage = 8;
-        $totalRes = $db->query('SELECT COUNT(*) cnt FROM teams');
-        $total = (int) (($totalRes ? $totalRes->fetch_assoc()['cnt'] : 0) ?? 0);
+        $where = in_array($level, ['junior', 'middle', 'senior'], true) ? ' WHERE level = ? ' : '';
+        $countSql = 'SELECT COUNT(*) cnt FROM teams' . $where;
+        $countStmt = $db->prepare($countSql);
+        if ($where !== '') {
+            $countStmt->bind_param('s', $level);
+        }
+        $countStmt->execute();
+        $total = (int) (($countStmt->get_result()->fetch_assoc()['cnt'] ?? 0));
         $meta = paginate_meta($total, $pageNum, $perPage);
 
-        $stmt = $db->prepare('SELECT id, team_name, created_at FROM teams ORDER BY id DESC LIMIT ? OFFSET ?');
-        $stmt->bind_param('ii', $meta['per_page'], $meta['offset']);
+        $sql = 'SELECT id, team_name, level, created_at FROM teams' . $where . ' ORDER BY id DESC LIMIT ? OFFSET ?';
+        $stmt = $db->prepare($sql);
+        if ($where !== '') {
+            $stmt->bind_param('sii', $level, $meta['per_page'], $meta['offset']);
+        } else {
+            $stmt->bind_param('ii', $meta['per_page'], $meta['offset']);
+        }
         $stmt->execute();
         $teams = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
@@ -433,7 +611,44 @@ function load_page_data(mysqli $db, string $page, array $input): array
         }
         unset($team);
 
-        return ['items' => $teams, 'pagination' => $meta];
+        return ['items' => $teams, 'pagination' => $meta, 'filters' => ['level' => $level]];
+    }
+
+    if ($page === 'projects') {
+        $status = qp_str($input, 'status');
+        $pageNum = qp_int($input, 'p', 1, 1);
+        $perPage = 8;
+        $where = in_array($status, ['boshlanish', 'qurish', 'testlash', 'tugallash'], true) ? ' WHERE status = ? ' : '';
+
+        $countSql = 'SELECT COUNT(*) cnt FROM projects' . $where;
+        $countStmt = $db->prepare($countSql);
+        if ($where !== '') {
+            $countStmt->bind_param('s', $status);
+        }
+        $countStmt->execute();
+        $total = (int) (($countStmt->get_result()->fetch_assoc()['cnt'] ?? 0));
+        $meta = paginate_meta($total, $pageNum, $perPage);
+
+        $sql = 'SELECT id, project_name, status, created_at FROM projects' . $where . ' ORDER BY id DESC LIMIT ? OFFSET ?';
+        $stmt = $db->prepare($sql);
+        if ($where !== '') {
+            $stmt->bind_param('sii', $status, $meta['per_page'], $meta['offset']);
+        } else {
+            $stmt->bind_param('ii', $meta['per_page'], $meta['offset']);
+        }
+        $stmt->execute();
+        $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        $memberStmt = $db->prepare('SELECT pm.id, pm.project_id, pm.student_id, s.fio FROM project_members pm JOIN students s ON s.id=pm.student_id WHERE pm.project_id=? ORDER BY s.fio ASC');
+        foreach ($projects as &$project) {
+            $projectId = (int) $project['id'];
+            $memberStmt->bind_param('i', $projectId);
+            $memberStmt->execute();
+            $project['members'] = $memberStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        }
+        unset($project);
+
+        return ['items' => $projects, 'pagination' => $meta, 'filters' => ['status' => $status]];
     }
 
     return [];

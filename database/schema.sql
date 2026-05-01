@@ -134,20 +134,30 @@ CREATE TABLE IF NOT EXISTS competition_participants (
     REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS competition_result_types (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL UNIQUE,
+  sort_order TINYINT UNSIGNED NOT NULL DEFAULT 1
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS competition_results (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   competition_id INT UNSIGNED NOT NULL,
   student_id INT UNSIGNED NOT NULL,
-  position TINYINT UNSIGNED NOT NULL,
+  award_type_id INT UNSIGNED NOT NULL,
+  cash_amount DECIMAL(12,2) DEFAULT NULL,
+  position TINYINT UNSIGNED DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_competition_student_result (competition_id, student_id),
-  UNIQUE KEY uq_competition_position_result (competition_id, position),
   INDEX idx_competition_results_competition (competition_id),
   INDEX idx_competition_results_student (student_id),
   CONSTRAINT fk_competition_results_competition FOREIGN KEY (competition_id)
     REFERENCES competitions(id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_competition_results_student FOREIGN KEY (student_id)
-    REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE
+    REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_competition_results_type FOREIGN KEY (award_type_id)
+    REFERENCES competition_result_types(id) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS schedule (
@@ -159,9 +169,25 @@ CREATE TABLE IF NOT EXISTS schedule (
   INDEX idx_schedule_type_date (type, date)
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS task_schedule (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(180) NOT NULL,
+  deadline DATE NOT NULL,
+  file_path VARCHAR(255) DEFAULT NULL,
+  description TEXT DEFAULT NULL,
+  target_groups JSON DEFAULT NULL,
+  student_ids JSON DEFAULT NULL,
+  course_student_ids JSON DEFAULT NULL,
+  mentor_ids JSON DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_task_schedule_deadline (deadline)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS teams (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   team_name VARCHAR(150) NOT NULL,
+  level ENUM('junior', 'middle', 'senior') NOT NULL DEFAULT 'middle',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -178,6 +204,26 @@ CREATE TABLE IF NOT EXISTS team_members (
     REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE IF NOT EXISTS projects (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  project_name VARCHAR(180) NOT NULL,
+  status ENUM('boshlanish', 'qurish', 'testlash', 'tugallash') NOT NULL DEFAULT 'boshlanish',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS project_members (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  project_id INT UNSIGNED NOT NULL,
+  student_id INT UNSIGNED NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_project_student (project_id, student_id),
+  INDEX idx_project_members_student (student_id),
+  CONSTRAINT fk_project_members_project FOREIGN KEY (project_id)
+    REFERENCES projects(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_project_members_student FOREIGN KEY (student_id)
+    REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS week_days (
   id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(10) NOT NULL UNIQUE,
@@ -187,8 +233,15 @@ CREATE TABLE IF NOT EXISTS week_days (
 INSERT INTO directions (name) VALUES ('Frontend'), ('Backend'), ('Mobile')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
-INSERT INTO statuses (name) VALUES ('Rezident'), ('Kurs o\'quvchi')
+INSERT INTO statuses (name) VALUES ('Rezident'), ('Kurs o\'quvchi'), ('Talaba')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+INSERT INTO competition_result_types (code, name, sort_order) VALUES
+('certificate', 'Sertifikat', 1),
+('diploma', 'Diplom', 2),
+('winner', 'Sovrindor bo\'ldi', 3),
+('cash', 'Pul miqdori', 4)
+ON DUPLICATE KEY UPDATE name = VALUES(name), sort_order = VALUES(sort_order);
 
 INSERT INTO week_days (code, name) VALUES
 ('Mon', 'Dushanba'),

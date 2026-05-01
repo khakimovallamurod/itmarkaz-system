@@ -26,11 +26,15 @@ $participantStmt->execute();
 $participants = $participantStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
 $resultStmt = $db->prepare('
-  SELECT cr.id, cr.student_id, cr.position, s.fio
+  SELECT cr.id, cr.student_id, cr.position, cr.cash_amount, cr.award_type_id, crt.code AS award_code, crt.name AS award_name, s.fio
   FROM competition_results cr
   JOIN students s ON s.id = cr.student_id
+  LEFT JOIN competition_result_types crt ON crt.id = cr.award_type_id
   WHERE cr.competition_id = ?
-  ORDER BY cr.position ASC, s.fio ASC
+  ORDER BY
+    CASE WHEN cr.position IS NULL THEN 1 ELSE 0 END ASC,
+    cr.position ASC,
+    s.fio ASC
 ');
 $resultStmt->bind_param('i', $competitionId);
 $resultStmt->execute();

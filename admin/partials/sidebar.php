@@ -11,6 +11,7 @@ $menus = [
     'competitions' => ['label' => 'Tanlovlar', 'icon' => 'fa-trophy', 'link' => 'index.php?page=competitions'],
     'schedule' => ['label' => 'Ish jadvali', 'icon' => 'fa-calendar-days', 'link' => 'index.php?page=schedule'],
     'teams' => ['label' => 'Upwork Jamoa', 'icon' => 'fa-people-group', 'link' => 'index.php?page=teams'],
+    'projects' => ['label' => 'Loyihalar', 'icon' => 'fa-diagram-project', 'link' => 'index.php?page=projects'],
     'statistics' => ['label' => 'Statistika', 'icon' => 'fa-chart-simple', 'link' => 'index.php?page=statistics'],
 ];
 $settingsChildren = [

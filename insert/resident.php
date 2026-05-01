@@ -9,19 +9,6 @@ if ($studentId < 1) {
     json_response(false, 'Talaba tanlanmagan');
 }
 
-$statusStmt = $db->prepare("
-  SELECT 1
-  FROM student_status ss
-  JOIN statuses st ON st.id = ss.status_id
-  WHERE ss.student_id = ? AND LOWER(TRIM(st.name)) = LOWER('Rezident')
-  LIMIT 1
-");
-$statusStmt->bind_param('i', $studentId);
-$statusStmt->execute();
-if (!$statusStmt->get_result()->fetch_assoc()) {
-    json_response(false, 'Talabada Rezident status yo\'q.');
-}
-
 $stmt = $db->prepare('
   INSERT INTO residents (student_id, room_id, computer_number)
   VALUES (?, NULLIF(?, 0), ?)

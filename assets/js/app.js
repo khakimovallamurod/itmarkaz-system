@@ -199,17 +199,35 @@ function updateStudentAutoCourse() {
   courseInput.value = calculateCourseFromEntryYear(yearInput.value) || '-';
 }
 
+function setDefaultStudentStatus() {
+  const form = qs('studentForm');
+  if (!form) return;
+  const statusInputs = Array.from(form.querySelectorAll('input[name="status[]"]'));
+  if (!statusInputs.length) return;
+  if (statusInputs.some((input) => input.checked)) return;
+  const talabaInput = statusInputs.find((input) => {
+    const label = input.closest('label');
+    const text = label?.querySelector('span')?.textContent || '';
+    return text.trim().toLowerCase() === 'talaba';
+  });
+  if (talabaInput) talabaInput.checked = true;
+}
+
 function reloadPage() {
   window.location.reload();
 }
 
-function createDynamicStudentSelectorManager({ containerId, addButtonId, modalId, inputName = 'student_ids[]', minRows = 1 }) {
+function createDynamicStudentSelectorManager({ containerId, addButtonId, modalId, inputName = 'student_ids[]', minRows = 1, optionsList = null }) {
   const container = qs(containerId);
   const addBtn = qs(addButtonId);
   if (!container) return null;
-  const options = PAGE_OPTIONS.student_options || [];
+  const options = Array.isArray(optionsList) ? optionsList : (PAGE_OPTIONS.student_options || []);
 
-  const optionHtml = () => '<option value=""></option>' + options.map((s) => `<option value="${s.id}">${escapeHtml(s.fio)}</option>`).join('');
+  const optionHtml = () => '<option value=""></option>' + options.map((s) => {
+    const disabled = Boolean(Number(s.is_assigned || 0)) || Boolean(s.disabled);
+    const label = `${escapeHtml(s.fio)}${disabled ? ' (mavjud)' : ''}`;
+    return `<option value="${s.id}" ${disabled ? 'disabled' : ''}>${label}</option>`;
+  }).join('');
 
   const getRows = () => Array.from(container.querySelectorAll('[data-student-row]'));
   const getSelects = () => getRows().map((row) => row.querySelector('select')).filter(Boolean);
@@ -221,7 +239,8 @@ function createDynamicStudentSelectorManager({ containerId, addButtonId, modalId
       const current = select.value || '';
       Array.from(select.options).forEach((opt) => {
         if (!opt.value) return;
-        opt.disabled = selected.includes(opt.value) && opt.value !== current;
+        const baseDisabled = opt.dataset.baseDisabled === '1';
+        opt.disabled = baseDisabled || (selected.includes(opt.value) && opt.value !== current);
       });
       if (canUseSelect2()) window.jQuery(select).trigger('change.select2');
     });
@@ -243,6 +262,10 @@ function createDynamicStudentSelectorManager({ containerId, addButtonId, modalId
     row.innerHTML = `<select name="${inputName}" class="form-input flex-1" required>${optionHtml()}</select><button type="button" data-remove-student-row class="h-10 w-10 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-100 flex items-center justify-center">×</button>`;
     container.appendChild(row);
     const select = row.querySelector('select');
+    Array.from(select.options).forEach((opt) => {
+      if (!opt.value) return;
+      opt.dataset.baseDisabled = opt.disabled ? '1' : '0';
+    });
     initSelect2ForElement(select, 'Talabani tanlang', modalId);
     select.addEventListener('change', syncDisabled);
     row.querySelector('[data-remove-student-row]')?.addEventListener('click', () => {
@@ -279,6 +302,12 @@ function createDynamicStudentSelectorManager({ containerId, addButtonId, modalId
 
 let notifyManager = null;
 let teamManager = null;
+let projectManager = null;
+let residentManager = null;
+let courseStudentManager = null;
+let competitionParticipantManager = null;
+let competitionResultManager = null;
+let competitionReportPicker = null;
 
 function openModal(id) {
   const el = qs(id);
@@ -299,6 +328,7 @@ function openStudentModal() {
   const form = qs('studentForm');
   form?.reset();
   if (qs('studentId')) qs('studentId').value = '';
+  setDefaultStudentStatus();
   updateStudentAutoCourse();
 }
 function closeStudentModal() { closeModal('studentModal'); }
@@ -327,6 +357,22 @@ function openResidentModal(item) {
 }
 function closeResidentModal() { closeModal('residentModal'); }
 
+function openResidentBulkModal() {
+  openModal('residentBulkModal');
+  qs('residentBulkForm')?.reset();
+  if (!residentManager && qs('residentStudentSelectors')) {
+    residentManager = createDynamicStudentSelectorManager({
+      containerId: 'residentStudentSelectors',
+      addButtonId: 'addResidentStudentSelectBtn',
+      modalId: 'residentBulkModal',
+      inputName: 'student_ids[]',
+      optionsList: PAGE_OPTIONS.resident_students || [],
+    });
+  }
+  residentManager?.reset();
+}
+function closeResidentBulkModal() { closeModal('residentBulkModal'); }
+
 function openCourseStudentModal(item) {
   openModal('courseStudentModal');
   qs('courseStudentId').value = item.student_id || '';
@@ -335,6 +381,22 @@ function openCourseStudentModal(item) {
   qs('courseRoomSelect').value = item.room_id || '';
 }
 function closeCourseStudentModal() { closeModal('courseStudentModal'); }
+
+function openCourseStudentBulkModal() {
+  openModal('courseStudentBulkModal');
+  qs('courseStudentBulkForm')?.reset();
+  if (!courseStudentManager && qs('courseStudentSelectors')) {
+    courseStudentManager = createDynamicStudentSelectorManager({
+      containerId: 'courseStudentSelectors',
+      addButtonId: 'addCourseStudentSelectBtn',
+      modalId: 'courseStudentBulkModal',
+      inputName: 'student_ids[]',
+      optionsList: PAGE_OPTIONS.course_students_options || [],
+    });
+  }
+  courseStudentManager?.reset();
+}
+function closeCourseStudentBulkModal() { closeModal('courseStudentBulkModal'); }
 
 function openRoomModal() { openModal('roomModal'); qs('roomForm')?.reset(); }
 function closeRoomModal() { closeModal('roomModal'); }
@@ -394,10 +456,150 @@ function fillCompetition(item) {
 
 function openCompetitionNotifyModal() { openModal('competitionNotifyModal'); notifyManager?.reset(); }
 function closeCompetitionNotifyModal() { closeModal('competitionNotifyModal'); }
-function openCompetitionResultModal() { openModal('competitionResultModal'); initSelect2ForElement(qs('competitionResultStudentSelect'), 'Talabani tanlang', 'competitionResultModal'); }
+function openCompetitionResultModal() {
+  openModal('competitionResultModal');
+  qs('competitionResultForm')?.reset();
+  if (!competitionResultManager && qs('competitionResultStudentSelectors')) {
+    competitionResultManager = createDynamicStudentSelectorManager({
+      containerId: 'competitionResultStudentSelectors',
+      addButtonId: 'addCompetitionResultStudentSelectBtn',
+      modalId: 'competitionResultModal',
+      inputName: 'student_ids[]',
+      optionsList: PAGE_OPTIONS.student_options || [],
+    });
+  }
+  competitionResultManager?.reset();
+  initSelect2ForElement(qs('competitionResultTypeSelect'), 'Natija turini tanlang', 'competitionResultModal');
+  toggleCompetitionCashInput();
+}
 function closeCompetitionResultModal() { closeModal('competitionResultModal'); }
-function openCompetitionParticipantModal() { openModal('competitionParticipantModal'); initSelect2ForElement(qs('competitionParticipantStudentSelect'), 'Talabani tanlang', 'competitionParticipantModal'); }
+function openCompetitionParticipantModal() {
+  openModal('competitionParticipantModal');
+  qs('competitionParticipantForm')?.reset();
+  const participantIds = new Set((PAGE_DATA.participants || []).map((p) => Number(p.student_id)));
+  const options = (PAGE_OPTIONS.student_options || []).map((s) => ({
+    ...s,
+    disabled: participantIds.has(Number(s.id)),
+  }));
+  if (!competitionParticipantManager && qs('competitionParticipantStudentSelectors')) {
+    competitionParticipantManager = createDynamicStudentSelectorManager({
+      containerId: 'competitionParticipantStudentSelectors',
+      addButtonId: 'addCompetitionParticipantStudentSelectBtn',
+      modalId: 'competitionParticipantModal',
+      inputName: 'student_ids[]',
+      optionsList: options,
+    });
+  }
+  competitionParticipantManager?.reset();
+}
 function closeCompetitionParticipantModal() { closeModal('competitionParticipantModal'); }
+function formatIsoDate(date) {
+  if (!(date instanceof Date)) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function renderCompetitionReport(data = {}) {
+  const counts = {
+    competitions: Number(data.competitions_count || 0),
+    participants: Number(data.participants_count || 0),
+    winners: Number(data.winners_count || 0),
+  };
+  if (qs('reportCompetitionsCount')) qs('reportCompetitionsCount').textContent = String(counts.competitions);
+  if (qs('reportParticipantsCount')) qs('reportParticipantsCount').textContent = String(counts.participants);
+  if (qs('reportWinnersCount')) qs('reportWinnersCount').textContent = String(counts.winners);
+
+  const names = data.period_names || {};
+  const renderNames = (targetId, list) => {
+    const el = qs(targetId);
+    if (!el) return;
+    const items = Array.isArray(list) ? list : [];
+    el.innerHTML = items.length
+      ? items.map((name) => `<p>• ${escapeHtml(name)}</p>`).join('')
+      : '<p class="text-slate-500">Mavjud emas.</p>';
+  };
+  renderNames('reportPastNames', names.past || []);
+  renderNames('reportUpcoming15Names', names.upcoming_15 || []);
+  renderNames('reportUpcomingAfter15Names', names.upcoming_after_15 || []);
+}
+
+async function loadCompetitionReport(dateFrom = '', dateTo = '') {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set('date_from', dateFrom);
+  if (dateTo) params.set('date_to', dateTo);
+  const url = `../get/competition_report.php${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await apiFetch(url);
+  if (!res.success) {
+    toast('error', res.message || 'Hisobotni olishda xatolik.');
+    return;
+  }
+  renderCompetitionReport(res.data || {});
+}
+
+function initCompetitionReportDateRange() {
+  const input = qs('competitionReportDateRange');
+  if (!input || typeof flatpickr === 'undefined') return;
+  if (competitionReportPicker) {
+    competitionReportPicker.destroy();
+    competitionReportPicker = null;
+  }
+  input.value = '';
+  competitionReportPicker = flatpickr(input, {
+    mode: 'range',
+    dateFormat: 'Y-m-d',
+    allowInput: false,
+    onClose: (selectedDates) => {
+      if (!Array.isArray(selectedDates) || selectedDates.length !== 2) {
+        loadCompetitionReport('', '');
+        return;
+      }
+      const [fromDate, toDate] = selectedDates;
+      loadCompetitionReport(formatIsoDate(fromDate), formatIsoDate(toDate));
+    },
+  });
+}
+
+function openCompetitionReportModal() {
+  openModal('competitionReportModal');
+  initCompetitionReportDateRange();
+  loadCompetitionReport('', '');
+}
+function closeCompetitionReportModal() { closeModal('competitionReportModal'); }
+
+function toggleCompetitionCashInput() {
+  const select = qs('competitionResultTypeSelect');
+  const cashInput = qs('competitionResultCashInput');
+  if (!select || !cashInput) return;
+  const selected = select.options[select.selectedIndex];
+  const code = selected?.dataset?.code || '';
+  const isCash = code === 'cash';
+  cashInput.disabled = !isCash;
+  cashInput.required = isCash;
+  if (!isCash) cashInput.value = '';
+}
+
+function setupAutoFilters() {
+  const forms = Array.from(document.querySelectorAll('form[method="get"]')).filter((form) => form.querySelector('input[name="page"]'));
+  forms.forEach((form) => {
+    const submitForm = () => {
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
+    };
+
+    form.querySelectorAll('select').forEach((select) => {
+      select.addEventListener('change', submitForm);
+    });
+    form.querySelectorAll('input[type="date"]').forEach((input) => {
+      input.addEventListener('change', submitForm);
+    });
+    form.querySelectorAll('button').forEach((btn) => {
+      const label = (btn.textContent || '').trim().toLowerCase();
+      if (label === 'filter') btn.classList.add('hidden');
+    });
+  });
+}
 
 function openScheduleModal() { openModal('scheduleModal'); qs('scheduleForm')?.reset(); const id = qs('scheduleForm')?.querySelector('[name="id"]'); if (id) id.value = ''; }
 function closeScheduleModal() { closeModal('scheduleModal'); }
@@ -414,6 +616,18 @@ function openTeamModal() {
 function closeTeamModal() { closeModal('teamModal'); }
 function openTeamMemberModal(teamId) { openModal('teamMemberModal'); qs('teamMemberTeamId').value = teamId; initSelect2ForElement(qs('teamMemberStudentSelect'), 'Talabani tanlang', 'teamMemberModal'); }
 function closeTeamMemberModal() { closeModal('teamMemberModal'); }
+
+function openProjectModal() {
+  openModal('projectModal');
+  qs('projectForm')?.reset();
+  if (!projectManager && qs('projectStudentSelectors')) {
+    projectManager = createDynamicStudentSelectorManager({ containerId: 'projectStudentSelectors', addButtonId: 'addProjectStudentSelectBtn', modalId: 'projectModal', inputName: 'student_ids[]' });
+  }
+  projectManager?.reset();
+}
+function closeProjectModal() { closeModal('projectModal'); }
+function openProjectMemberModal(projectId) { openModal('projectMemberModal'); qs('projectMemberProjectId').value = projectId; initSelect2ForElement(qs('projectMemberStudentSelect'), 'Talabani tanlang', 'projectMemberModal'); }
+function closeProjectMemberModal() { closeModal('projectMemberModal'); }
 
 function setupScheduleViewToggle() {
   const tableWrap = qs('scheduleTableWrap');
@@ -561,6 +775,13 @@ function setupTableActions() {
         toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
         return;
       }
+      if (btn.classList.contains('js-result-delete')) {
+        const ok = await confirmAction(); if (!ok.isConfirmed) return;
+        const fd = new FormData(); fd.append('id', btn.dataset.id || '0');
+        const res = await apiFetch('../delete/competition_result.php', { method: 'POST', body: fd });
+        toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
+        return;
+      }
       if (btn.classList.contains('js-team-delete')) {
         const ok = await confirmAction(); if (!ok.isConfirmed) return;
         const fd = new FormData(); fd.append('id', btn.dataset.id || '0');
@@ -575,6 +796,20 @@ function setupTableActions() {
         return;
       }
       if (btn.classList.contains('js-team-member-open')) return openTeamMemberModal(btn.dataset.teamId || '0');
+      if (btn.classList.contains('js-project-delete')) {
+        const ok = await confirmAction(); if (!ok.isConfirmed) return;
+        const fd = new FormData(); fd.append('id', btn.dataset.id || '0');
+        const res = await apiFetch('../delete/project.php', { method: 'POST', body: fd });
+        toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
+        return;
+      }
+      if (btn.classList.contains('js-project-member-remove')) {
+        const fd = new FormData(); fd.append('id', btn.dataset.id || '0');
+        const res = await apiFetch('../delete/project_member.php', { method: 'POST', body: fd });
+        toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
+        return;
+      }
+      if (btn.classList.contains('js-project-member-open')) return openProjectMemberModal(btn.dataset.projectId || '0');
     }
 
     const card = event.target.closest('[data-open-competition]');
@@ -590,7 +825,6 @@ function setupForms() {
   qs('studentForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    if (!fd.getAll('status[]').length) return toast('error', 'Kamida bitta status tanlang.');
     const res = await apiFetch(fd.get('id') ? '../update/student.php' : '../insert/student.php', { method: 'POST', body: fd });
     toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
   });
@@ -601,10 +835,91 @@ function setupForms() {
     toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
   });
 
+  qs('residentBulkForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (residentManager?.hasDuplicate()) return toast('error', 'Bir xil talaba ikki marta tanlandi.');
+    const selected = residentManager?.selectedValues() || [];
+    if (!selected.length) return toast('error', 'Kamida bitta talaba tanlang.');
+
+    const options = PAGE_OPTIONS.resident_students || [];
+    const nameMap = new Map(options.map((s) => [String(s.id), s.fio || `ID ${s.id}`]));
+    const roomId = String(e.target.room_id?.value || '');
+    const computerNumber = String(e.target.computer_number?.value || '');
+
+    let successCount = 0;
+    const errors = [];
+    for (const studentId of selected) {
+      const fd = new FormData();
+      fd.append('student_id', studentId);
+      fd.append('room_id', roomId);
+      fd.append('computer_number', computerNumber);
+      const res = await apiFetch('../insert/resident.php', { method: 'POST', body: fd });
+      if (res.success) {
+        successCount += 1;
+      } else {
+        const label = nameMap.get(String(studentId)) || `ID ${studentId}`;
+        errors.push(`${label}: ${res.message}`);
+      }
+    }
+
+    if (!errors.length) {
+      toast('success', `${successCount} ta rezident qo'shildi.`);
+      reloadPage();
+      return;
+    }
+
+    Swal.fire({
+      icon: successCount > 0 ? 'warning' : 'error',
+      title: 'Qo\'shishda xatolik bor',
+      html: `<div class="text-left text-sm">Muvaffaqiyatli: ${successCount}<br>Xatolik: ${errors.length}<br><br>${errors.slice(0, 8).map((msg) => escapeHtml(msg)).join('<br>')}</div>`,
+    });
+  });
+
   qs('courseStudentForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const res = await apiFetch('../insert/course_student.php', { method: 'POST', body: new FormData(e.target) });
     toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
+  });
+
+  qs('courseStudentBulkForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (courseStudentManager?.hasDuplicate()) return toast('error', 'Bir xil talaba ikki marta tanlandi.');
+    const selected = courseStudentManager?.selectedValues() || [];
+    if (!selected.length) return toast('error', 'Kamida bitta talaba tanlang.');
+
+    const options = PAGE_OPTIONS.course_students_options || [];
+    const nameMap = new Map(options.map((s) => [String(s.id), s.fio || `ID ${s.id}`]));
+    const courseId = String(e.target.course_id?.value || '');
+    if (!courseId) return toast('error', 'Kursni tanlang.');
+    const roomId = String(e.target.room_id?.value || '');
+
+    let successCount = 0;
+    const errors = [];
+    for (const studentId of selected) {
+      const fd = new FormData();
+      fd.append('student_id', studentId);
+      fd.append('course_id', courseId);
+      fd.append('room_id', roomId);
+      const res = await apiFetch('../insert/course_student.php', { method: 'POST', body: fd });
+      if (res.success) {
+        successCount += 1;
+      } else {
+        const label = nameMap.get(String(studentId)) || `ID ${studentId}`;
+        errors.push(`${label}: ${res.message}`);
+      }
+    }
+
+    if (!errors.length) {
+      toast('success', `${successCount} ta kurs o'quvchi qo'shildi.`);
+      reloadPage();
+      return;
+    }
+
+    Swal.fire({
+      icon: successCount > 0 ? 'warning' : 'error',
+      title: 'Qo\'shishda xatolik bor',
+      html: `<div class="text-left text-sm">Muvaffaqiyatli: ${successCount}<br>Xatolik: ${errors.length}<br><br>${errors.slice(0, 8).map((msg) => escapeHtml(msg)).join('<br>')}</div>`,
+    });
   });
 
   qs('directionForm')?.addEventListener('submit', async (e) => {
@@ -668,12 +983,18 @@ function setupForms() {
 
   qs('competitionResultForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (competitionResultManager?.hasDuplicate()) return toast('error', 'Bir xil talaba ikki marta tanlandi.');
+    const selected = competitionResultManager?.selectedValues() || [];
+    if (!selected.length) return toast('error', 'Kamida bitta talaba tanlang.');
     const res = await apiFetch('../insert/competition_result.php', { method: 'POST', body: new FormData(e.target) });
     toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
   });
 
   qs('competitionParticipantForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (competitionParticipantManager?.hasDuplicate()) return toast('error', 'Bir xil talaba ikki marta tanlandi.');
+    const selected = competitionParticipantManager?.selectedValues() || [];
+    if (!selected.length) return toast('error', 'Kamida bitta talaba tanlang.');
     const res = await apiFetch('../insert/competition_participant.php', { method: 'POST', body: new FormData(e.target) });
     toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
   });
@@ -700,6 +1021,21 @@ function setupForms() {
     toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
   });
 
+  qs('projectForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (projectManager?.hasDuplicate()) return toast('error', 'Bir xil talaba ikki marta tanlandi.');
+    const selected = projectManager?.selectedValues() || [];
+    if (!selected.length) return toast('error', 'Kamida bitta talaba tanlang.');
+    const res = await apiFetch('../insert/project.php', { method: 'POST', body: new FormData(e.target) });
+    toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
+  });
+
+  qs('projectMemberForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const res = await apiFetch('../insert/project_member.php', { method: 'POST', body: new FormData(e.target) });
+    toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
+  });
+
   qs('logoutBtn')?.addEventListener('click', async () => {
     const res = await apiFetch('../api/auth.php?action=logout', { method: 'POST' });
     if (res.success) window.location.href = '../index.php';
@@ -707,6 +1043,10 @@ function setupForms() {
 }
 
 function setupPageButtons() {
+  qs('openResidentBulkModalBtn')?.addEventListener('click', openResidentBulkModal);
+  qs('openCourseStudentBulkModalBtn')?.addEventListener('click', openCourseStudentBulkModal);
+  qs('openCompetitionReportBtn')?.addEventListener('click', openCompetitionReportModal);
+  qs('competitionResultTypeSelect')?.addEventListener('change', toggleCompetitionCashInput);
   qs('competitionNotifyBtn')?.addEventListener('click', () => {
     if (!notifyManager && qs('notifyStudentSelectors')) {
       notifyManager = createDynamicStudentSelectorManager({ containerId: 'notifyStudentSelectors', addButtonId: 'addNotifyStudentSelectBtn', modalId: 'competitionNotifyModal', inputName: 'student_ids[]' });
@@ -716,6 +1056,31 @@ function setupPageButtons() {
   qs('competitionResultBtn')?.addEventListener('click', openCompetitionResultModal);
   qs('competitionParticipantAddBtn')?.addEventListener('click', openCompetitionParticipantModal);
   qs('openTeamCreateModalBtn')?.addEventListener('click', openTeamModal);
+  qs('openProjectCreateModalBtn')?.addEventListener('click', openProjectModal);
+}
+
+function setupInlineSelectActions() {
+  document.addEventListener('change', async (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement)) return;
+
+    if (target.classList.contains('js-team-level-change')) {
+      const fd = new FormData();
+      fd.append('id', target.dataset.id || '0');
+      fd.append('level', target.value || 'middle');
+      const res = await apiFetch('../update/team_level.php', { method: 'POST', body: fd });
+      toast(res.success ? 'success' : 'error', res.message);
+      return;
+    }
+
+    if (target.classList.contains('js-project-status-change')) {
+      const fd = new FormData();
+      fd.append('id', target.dataset.id || '0');
+      fd.append('status', target.value || 'boshlanish');
+      const res = await apiFetch('../update/project_status.php', { method: 'POST', body: fd });
+      toast(res.success ? 'success' : 'error', res.message);
+    }
+  });
 }
 
 setupSidebar();
@@ -727,6 +1092,8 @@ updateStudentAutoCourse();
 setupTableActions();
 setupForms();
 setupPageButtons();
+setupInlineSelectActions();
+setupAutoFilters();
 setupScheduleViewToggle();
 setupCharts();
 
@@ -734,8 +1101,10 @@ window.openStudentModal = openStudentModal;
 window.closeStudentModal = closeStudentModal;
 window.openResidentModal = openResidentModal;
 window.closeResidentModal = closeResidentModal;
+window.closeResidentBulkModal = closeResidentBulkModal;
 window.openCourseStudentModal = openCourseStudentModal;
 window.closeCourseStudentModal = closeCourseStudentModal;
+window.closeCourseStudentBulkModal = closeCourseStudentBulkModal;
 window.openRoomModal = openRoomModal;
 window.closeRoomModal = closeRoomModal;
 window.openCourseModal = openCourseModal;
@@ -751,7 +1120,10 @@ window.closeCompetitionModal = closeCompetitionModal;
 window.closeCompetitionNotifyModal = closeCompetitionNotifyModal;
 window.closeCompetitionResultModal = closeCompetitionResultModal;
 window.closeCompetitionParticipantModal = closeCompetitionParticipantModal;
+window.closeCompetitionReportModal = closeCompetitionReportModal;
 window.openScheduleModal = openScheduleModal;
 window.closeScheduleModal = closeScheduleModal;
 window.closeTeamModal = closeTeamModal;
 window.closeTeamMemberModal = closeTeamMemberModal;
+window.closeProjectModal = closeProjectModal;
+window.closeProjectMemberModal = closeProjectMemberModal;

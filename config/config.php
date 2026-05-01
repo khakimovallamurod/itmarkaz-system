@@ -243,24 +243,53 @@ function ensure_system_schema(mysqli $db): void
     }
 
     $db->query("
+      CREATE TABLE IF NOT EXISTS competition_result_types (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        code VARCHAR(50) NOT NULL UNIQUE,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        sort_order TINYINT UNSIGNED NOT NULL DEFAULT 1
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    $db->query("
+      INSERT INTO competition_result_types (code, name, sort_order) VALUES
+      ('certificate', 'Sertifikat', 1),
+      ('diploma', 'Diplom', 2),
+      ('winner', 'Sovrindor bo''ldi', 3),
+      ('cash', 'Pul miqdori', 4)
+      ON DUPLICATE KEY UPDATE
+        name = VALUES(name),
+        sort_order = VALUES(sort_order)
+    ");
+
+    $db->query("
       CREATE TABLE IF NOT EXISTS competition_results (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         competition_id INT UNSIGNED NOT NULL,
         student_id INT UNSIGNED NOT NULL,
-        position TINYINT UNSIGNED NOT NULL,
+        award_type_id INT UNSIGNED NOT NULL,
+        cash_amount DECIMAL(12,2) DEFAULT NULL,
+        position TINYINT UNSIGNED NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY uq_competition_student_result (competition_id, student_id),
-        UNIQUE KEY uq_competition_position_result (competition_id, position),
         INDEX idx_competition_results_student (student_id),
         CONSTRAINT fk_competition_results_competition FOREIGN KEY (competition_id)
           REFERENCES competitions(id) ON DELETE CASCADE ON UPDATE CASCADE,
         CONSTRAINT fk_competition_results_student FOREIGN KEY (student_id)
-          REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE
+          REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT fk_competition_results_type FOREIGN KEY (award_type_id)
+          REFERENCES competition_result_types(id) ON DELETE RESTRICT ON UPDATE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+    if (!$columnExists('competition_results', 'award_type_id')) {
+        $db->query('ALTER TABLE competition_results ADD COLUMN award_type_id INT UNSIGNED NULL AFTER student_id');
+    }
+    if (!$columnExists('competition_results', 'cash_amount')) {
+        $db->query('ALTER TABLE competition_results ADD COLUMN cash_amount DECIMAL(12,2) DEFAULT NULL AFTER award_type_id');
+    }
     if (!$columnExists('competition_results', 'position')) {
         $db->query('ALTER TABLE competition_results ADD COLUMN position TINYINT UNSIGNED NULL AFTER student_id');
     }
+    $db->query('UPDATE competition_results SET position = NULL WHERE position IS NOT NULL AND (position < 1 OR position > 5)');
     if ($columnExists('competition_results', 'result')) {
         $db->query("
           UPDATE competition_results
@@ -274,22 +303,31 @@ function ensure_system_schema(mysqli $db): void
           WHERE position IS NULL
         ");
     }
-    $db->query('DELETE FROM competition_results WHERE position IS NULL OR position NOT IN (1, 2, 3)');
-    $db->query('ALTER TABLE competition_results MODIFY COLUMN position TINYINT UNSIGNED NOT NULL');
+    $db->query("
+      UPDATE competition_results cr
+      JOIN competition_result_types rt ON rt.code = 'winner'
+      SET cr.award_type_id = rt.id
+      WHERE cr.award_type_id IS NULL
+    ");
+    $db->query('ALTER TABLE competition_results MODIFY COLUMN award_type_id INT UNSIGNED NOT NULL');
+    $db->query('ALTER TABLE competition_results MODIFY COLUMN position TINYINT UNSIGNED NULL');
     if (!$columnExists('competition_results', 'created_at')) {
         $db->query('ALTER TABLE competition_results ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
     }
     if (!$indexExists('competition_results', 'uq_competition_student_result')) {
         $db->query('ALTER TABLE competition_results ADD UNIQUE KEY uq_competition_student_result (competition_id, student_id)');
     }
-    if (!$indexExists('competition_results', 'uq_competition_position_result')) {
-        $db->query('ALTER TABLE competition_results ADD UNIQUE KEY uq_competition_position_result (competition_id, position)');
+    if ($indexExists('competition_results', 'uq_competition_position_result')) {
+        $db->query('ALTER TABLE competition_results DROP INDEX uq_competition_position_result');
     }
     if (!$fkExists('competition_results', 'fk_competition_results_competition')) {
         $db->query('ALTER TABLE competition_results ADD CONSTRAINT fk_competition_results_competition FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE ON UPDATE CASCADE');
     }
     if (!$fkExists('competition_results', 'fk_competition_results_student')) {
         $db->query('ALTER TABLE competition_results ADD CONSTRAINT fk_competition_results_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE');
+    }
+    if (!$fkExists('competition_results', 'fk_competition_results_type')) {
+        $db->query('ALTER TABLE competition_results ADD CONSTRAINT fk_competition_results_type FOREIGN KEY (award_type_id) REFERENCES competition_result_types(id) ON DELETE RESTRICT ON UPDATE CASCADE');
     }
 
     $db->query("
@@ -313,9 +351,15 @@ function ensure_system_schema(mysqli $db): void
       CREATE TABLE IF NOT EXISTS teams (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         team_name VARCHAR(150) NOT NULL,
+        level ENUM('junior', 'middle', 'senior') NOT NULL DEFAULT 'middle',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+    if (!$columnExists('teams', 'level')) {
+        $db->query("ALTER TABLE teams ADD COLUMN level ENUM('junior', 'middle', 'senior') NOT NULL DEFAULT 'middle' AFTER team_name");
+    } else {
+        $db->query("ALTER TABLE teams MODIFY COLUMN level ENUM('junior', 'middle', 'senior') NOT NULL DEFAULT 'middle'");
+    }
 
     $db->query("
       CREATE TABLE IF NOT EXISTS team_members (
@@ -339,6 +383,50 @@ function ensure_system_schema(mysqli $db): void
     }
     if (!$fkExists('team_members', 'fk_team_members_student')) {
         $db->query('ALTER TABLE team_members ADD CONSTRAINT fk_team_members_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE');
+    }
+
+    $db->query("
+      CREATE TABLE IF NOT EXISTS projects (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        project_name VARCHAR(180) NOT NULL,
+        status ENUM('boshlanish', 'qurish', 'testlash', 'tugallash') NOT NULL DEFAULT 'boshlanish',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    if (!$columnExists('projects', 'status')) {
+        $db->query("ALTER TABLE projects ADD COLUMN status ENUM('boshlanish', 'qurish', 'testlash', 'tugallash') NOT NULL DEFAULT 'boshlanish' AFTER project_name");
+    } else {
+        $db->query("ALTER TABLE projects MODIFY COLUMN status ENUM('boshlanish', 'qurish', 'testlash', 'tugallash') NOT NULL DEFAULT 'boshlanish'");
+    }
+    if (!$columnExists('projects', 'created_at')) {
+        $db->query('ALTER TABLE projects ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+    }
+
+    $db->query("
+      CREATE TABLE IF NOT EXISTS project_members (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        project_id INT UNSIGNED NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_project_student (project_id, student_id),
+        INDEX idx_project_members_student (student_id),
+        CONSTRAINT fk_project_members_project FOREIGN KEY (project_id)
+          REFERENCES projects(id) ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT fk_project_members_student FOREIGN KEY (student_id)
+          REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    if (!$indexExists('project_members', 'uq_project_student')) {
+        $db->query('ALTER TABLE project_members ADD UNIQUE KEY uq_project_student (project_id, student_id)');
+    }
+    if (!$indexExists('project_members', 'idx_project_members_student')) {
+        $db->query('ALTER TABLE project_members ADD INDEX idx_project_members_student (student_id)');
+    }
+    if (!$fkExists('project_members', 'fk_project_members_project')) {
+        $db->query('ALTER TABLE project_members ADD CONSTRAINT fk_project_members_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE ON UPDATE CASCADE');
+    }
+    if (!$fkExists('project_members', 'fk_project_members_student')) {
+        $db->query('ALTER TABLE project_members ADD CONSTRAINT fk_project_members_student FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE');
     }
 
     if (!$columnExists('course_students', 'status')) {
@@ -365,6 +453,7 @@ function ensure_system_schema(mysqli $db): void
     if (!$indexExists('competition_results', 'idx_competition_results_competition')) {
         $db->query('ALTER TABLE competition_results ADD INDEX idx_competition_results_competition (competition_id)');
     }
+    $db->query("INSERT INTO statuses (name) VALUES ('Rezident'), ('Kurs o''quvchi'), ('Talaba') ON DUPLICATE KEY UPDATE name = VALUES(name)");
     } finally {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
     }

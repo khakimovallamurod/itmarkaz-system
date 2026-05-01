@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../api/bootstrap.php';
 
-$teamsRes = $db->query('SELECT id, team_name, created_at FROM teams ORDER BY id DESC');
+$teamsRes = $db->query('SELECT id, team_name, level, created_at FROM teams ORDER BY id DESC');
 $teams = $teamsRes->fetch_all(MYSQLI_ASSOC);
 
 $teamStmt = $db->prepare('

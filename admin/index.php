@@ -38,6 +38,7 @@ $allowedPages = [
     'schedule',
     'statistics',
     'teams',
+    'projects',
     'directions',
     'statuses',
 ];

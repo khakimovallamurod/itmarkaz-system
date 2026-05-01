@@ -12,11 +12,21 @@ $statusIds = $_POST['status'] ?? ($_POST['status_ids'] ?? []);
 $statusIds = array_map('intval', (array) $statusIds);
 $statusIds = array_values(array_filter($statusIds, static fn ($value) => $value > 0));
 
-if ($id < 1 || $fio === '' || $yonalishId < 1 || $guruh === '' || $kirgan_yili < 2000 || !$statusIds) {
+if ($id < 1 || $fio === '' || $yonalishId < 1 || $guruh === '' || $kirgan_yili < 2000) {
     json_response(false, 'Majburiy maydonlar to\'ldirilmagan yoki ID xato.');
 }
 if ($telefon === null) {
     json_response(false, 'Telefon formati noto\'g\'ri. Masalan: +998 90 123 45 67');
+}
+
+if (!$statusIds) {
+    $defaultStatusStmt = $db->prepare("SELECT id FROM statuses WHERE LOWER(TRIM(name)) = LOWER('Talaba') LIMIT 1");
+    $defaultStatusStmt->execute();
+    $defaultStatus = $defaultStatusStmt->get_result()->fetch_assoc();
+    if (!$defaultStatus) {
+        json_response(false, 'Default status (Talaba) topilmadi.');
+    }
+    $statusIds = [(int) $defaultStatus['id']];
 }
 
 $db->begin_transaction();

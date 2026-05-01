@@ -21,6 +21,10 @@ $rooms = $pageOptions['rooms'] ?? [];
     </form>
 
     <div class="bg-white rounded-xl p-4 shadow overflow-auto">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h3 class="font-semibold text-slate-800">Kurs o'quvchilar ro'yxati</h3>
+            <button type="button" id="openCourseStudentBulkModalBtn" class="px-4 py-2 bg-emerald-700 text-white rounded hover:bg-emerald-800">+ Qo'shish</button>
+        </div>
         <div class="table-shell">
             <table class="admin-table">
                 <colgroup>
@@ -38,6 +42,7 @@ $rooms = $pageOptions['rooms'] ?? [];
                 <?php foreach ($items as $row): ?>
                     <?php
                     $rowJson = htmlspecialchars(json_encode($row, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+                    $isAssigned = !empty($row['id']);
                     $isCompleted = ($row['status'] ?? 'active') === 'completed';
                     ?>
                     <tr>
@@ -45,7 +50,9 @@ $rooms = $pageOptions['rooms'] ?? [];
                         <td><?= htmlspecialchars($row['course_name'] ?: '-'); ?></td>
                         <td><?= htmlspecialchars($row['room_number'] ?: '-'); ?></td>
                         <td>
-                            <?php if ($isCompleted): ?>
+                            <?php if (!$isAssigned): ?>
+                                <span class="px-2 py-1 rounded text-xs bg-slate-100 text-slate-700">Biriktirilmagan</span>
+                            <?php elseif ($isCompleted): ?>
                                 <span class="px-2 py-1 rounded text-xs bg-blue-100 text-blue-700">Tugatgan</span>
                             <?php else: ?>
                                 <span class="px-2 py-1 rounded text-xs bg-emerald-100 text-emerald-700">Kursda</span>
@@ -74,6 +81,44 @@ $rooms = $pageOptions['rooms'] ?? [];
                 <?php endfor; ?>
             </div>
         <?php endif; ?>
+    </div>
+</div>
+
+<div id="courseStudentBulkModal" class="admin-modal hidden fixed inset-0 bg-black/40 z-50 items-center justify-center p-4">
+    <div class="admin-modal-panel bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
+        <h3 class="font-bold mb-3">Kurs o'quvchi qo'shish</h3>
+        <form id="courseStudentBulkForm" class="form-grid">
+            <div class="form-field">
+                <div class="flex items-center justify-between gap-2">
+                    <span class="form-label">Talabalar</span>
+                    <button type="button" id="addCourseStudentSelectBtn" class="h-8 w-8 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 flex items-center justify-center" title="Yana talaba qo'shish">+</button>
+                </div>
+                <div id="courseStudentSelectors" class="space-y-2"></div>
+                <p class="text-xs text-slate-500">Har bir qatorda bitta talaba tanlang. Takror tanlash bloklanadi.</p>
+            </div>
+            <label class="form-field">
+                <span class="form-label">Kurs</span>
+                <select name="course_id" class="form-input" required>
+                    <option value="">Kurs tanlang</option>
+                    <?php foreach ($courses as $course): ?>
+                        <option value="<?= (int) $course['id']; ?>"><?= htmlspecialchars($course['name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <label class="form-field">
+                <span class="form-label">Xona (ixtiyoriy)</span>
+                <select name="room_id" class="form-input">
+                    <option value="">Xona tanlang</option>
+                    <?php foreach ($rooms as $room): ?>
+                        <option value="<?= (int) $room['id']; ?>"><?= htmlspecialchars($room['room_number']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="closeCourseStudentBulkModal()" class="px-4 py-2 border rounded">Bekor</button>
+                <button class="px-4 py-2 bg-emerald-800 text-white rounded">Qo'shish</button>
+            </div>
+        </form>
     </div>
 </div>
 

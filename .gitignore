@@ -2,3 +2,5 @@
 .calude
 bot/.env
 .env
+database/schema.sql
+database/
