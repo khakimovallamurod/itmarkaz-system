@@ -1,26 +1,68 @@
 <?php
 $items = $pageData['items'] ?? [];
 $pagination = $pageData['pagination'] ?? ['page' => 1, 'pages' => 1];
+$filters = $pageData['filters'] ?? [];
+
+function sortIcon($field, $filters) {
+    $currentSort = $filters['sort_by'] ?? '';
+    $currentOrder = $filters['sort_order'] ?? '';
+    if ($currentSort !== $field) return '<i class="fa-solid fa-sort text-slate-300 ml-1 text-[10px]"></i>';
+    return $currentOrder === 'ASC' 
+        ? '<i class="fa-solid fa-sort-up text-emerald-600 ml-1"></i>' 
+        : '<i class="fa-solid fa-sort-down text-emerald-600 ml-1"></i>';
+}
 ?>
 <div class="p-4 space-y-4">
-    <div class="bg-white rounded-xl shadow p-4 flex justify-between items-center">
+    <form method="get" class="bg-white rounded-xl p-4 shadow flex flex-wrap gap-2 items-center justify-between">
+        <input type="hidden" name="page" value="rooms">
+        <input type="hidden" name="sort_by" value="<?= htmlspecialchars($filters['sort_by'] ?? ''); ?>">
+        <input type="hidden" name="sort_order" value="<?= htmlspecialchars($filters['sort_order'] ?? ''); ?>">
         <h3 class="font-semibold">Xonalar</h3>
-        <button onclick="openRoomModal()" class="bg-emerald-800 text-white px-4 py-2 rounded">+ Xona qo'shish</button>
-    </div>
-    <div class="bg-white rounded-xl shadow p-4 overflow-auto">
-        <div class="table-shell">
-            <table class="admin-table">
-                <colgroup><col style="width: 30%;"><col style="width: 20%;"><col style="width: 26%;"><col style="width: 24%;"></colgroup>
-                <thead><tr><th>Xona</th><th>Sig'im</th><th>Kompyuter</th><th>Actions</th></tr></thead>
+        <button type="button" onclick="openRoomModal()" class="bg-emerald-800 text-white px-4 py-2 rounded">+ Xona qo'shish</button>
+    </form>
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 overflow-auto">
+        <div class="table-shell border-none">
+            <table class="admin-table w-full">
+                <colgroup>
+                    <col style="width: 60px;">
+                    <col style="width: 30%;">
+                    <col style="width: 20%;">
+                    <col style="width: 20%;">
+                    <col style="width: 20%;">
+                </colgroup>
+                <thead>
+                    <tr class="bg-slate-50/50">
+                        <th class="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
+                        <th class="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider" data-sort="room_number">Xona <?= sortIcon('room_number', $filters); ?></th>
+                        <th class="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider" data-sort="capacity">Sig'im <?= sortIcon('capacity', $filters); ?></th>
+                        <th class="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider" data-sort="computers_count">Kompyuter <?= sortIcon('computers_count', $filters); ?></th>
+                        <th class="px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">Amallar</th>
+                    </tr>
+                </thead>
                 <tbody>
-                <?php if (!$items): ?><tr><td colspan="4" class="text-center text-slate-500">Ma'lumot topilmadi</td></tr><?php endif; ?>
-                <?php foreach ($items as $r): ?>
+                <?php if (!$items): ?><tr><td colspan="5" class="text-center text-slate-500">Ma'lumot topilmadi</td></tr><?php endif; ?>
+                <?php 
+                $totalCount = $pagination['total'] ?? 0;
+                $offset = $pagination['offset'] ?? 0;
+                foreach ($items as $index => $r): 
+                    $rowNum = $totalCount - $offset - $index;
+                ?>
                     <?php $rowJson = htmlspecialchars(json_encode($r, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>
                     <tr>
-                        <td><?= htmlspecialchars($r['room_number']); ?></td>
-                        <td><?= (int) $r['capacity']; ?></td>
-                        <td><?= (int) $r['computers_count']; ?></td>
-                        <td><div class="table-actions"><button type="button" class="js-room-edit px-2 py-1 text-xs border rounded" data-item="<?= $rowJson; ?>">Edit</button><button type="button" class="js-room-delete px-2 py-1 text-xs bg-red-500 text-white rounded" data-id="<?= (int) $r['id']; ?>">Delete</button></div></td>
+                        <td class="px-4 py-3 text-slate-400 font-mono text-xs"><?= $rowNum; ?></td>
+                        <td class="px-4 py-3 font-medium text-slate-700"><?= htmlspecialchars($r['room_number']); ?></td>
+                        <td class="px-4 py-3 text-slate-600"><?= (int) $r['capacity']; ?></td>
+                        <td class="px-4 py-3 text-slate-600"><?= (int) $r['computers_count']; ?></td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button type="button" class="js-room-edit h-8 w-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors" data-item="<?= $rowJson; ?>">
+                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                </button>
+                                <button type="button" class="js-room-delete h-8 w-8 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" data-id="<?= (int) $r['id']; ?>">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>

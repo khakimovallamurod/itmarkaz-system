@@ -10,24 +10,43 @@ $weekDays = $pageOptions['week_days'] ?? [];
     </div>
     <div class="bg-white rounded-xl shadow p-4 overflow-auto">
         <div class="table-shell">
-            <table class="admin-table">
-                <colgroup><col style="width: 26%;"><col style="width: 32%;"><col style="width: 14%;"><col style="width: 14%;"><col style="width: 14%;"></colgroup>
-                <thead><tr><th>Nomi</th><th>Kunlar</th><th>Vaqt</th><th>Davomiylik</th><th>Actions</th></tr></thead>
+            <table class="admin-table w-full">
+                <colgroup><col style="width: 60px;"><col style="width: 26%;"><col style="width: 32%;"><col style="width: 14%;"><col style="width: 14%;"><col style="width: 14%;"></colgroup>
+                <thead><tr><th class="px-4 py-3">#</th><th class="px-4 py-3 text-left">Nomi</th><th class="px-4 py-3 text-left">Kunlar</th><th class="px-4 py-3 text-left">Vaqt</th><th class="px-4 py-3 text-left text-xs">Davomiylik</th><th class="px-4 py-3 text-right">Amallar</th></tr></thead>
                 <tbody>
-                <?php if (!$items): ?><tr><td colspan="5" class="text-center text-slate-500">Ma'lumot topilmadi</td></tr><?php endif; ?>
-                <?php foreach ($items as $c): ?>
-                    <?php
+                <?php if (!$items): ?><tr><td colspan="6" class="text-center text-slate-500 py-10">Ma'lumot topilmadi</td></tr><?php endif; ?>
+                <?php 
+                $totalCount = $pagination['total'] ?? 0;
+                $offset = $pagination['offset'] ?? 0;
+                foreach ($items as $index => $c): 
+                    $rowNum = $totalCount - $offset - $index;
                     $days = json_decode((string) ($c['days'] ?? '[]'), true);
                     if (!is_array($days)) $days = [];
                     $c['days'] = $days;
                     $rowJson = htmlspecialchars(json_encode($c, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
-                    ?>
-                    <tr>
-                        <td><?= htmlspecialchars($c['name']); ?></td>
-                        <td><?= htmlspecialchars(implode(', ', $days)); ?></td>
-                        <td><?= htmlspecialchars($c['time']); ?></td>
-                        <td><?= htmlspecialchars($c['duration']); ?></td>
-                        <td><div class="table-actions"><button type="button" class="js-course-edit px-2 py-1 text-xs border rounded" data-item="<?= $rowJson; ?>">Edit</button><button type="button" class="js-course-delete px-2 py-1 text-xs bg-red-500 text-white rounded" data-id="<?= (int)$c['id']; ?>">Delete</button></div></td>
+                ?>
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 text-slate-400 font-mono text-xs"><?= $rowNum; ?></td>
+                        <td class="px-4 py-3 font-medium text-slate-700"><?= htmlspecialchars($c['name']); ?></td>
+                        <td class="px-4 py-3 text-slate-600">
+                            <div class="flex flex-wrap gap-1">
+                                <?php foreach ($days as $day): ?>
+                                    <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-medium"><?= htmlspecialchars($day); ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars($c['time']); ?></td>
+                        <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars($c['duration']); ?></td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button type="button" class="js-course-edit h-8 w-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors" data-item="<?= $rowJson; ?>">
+                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                </button>
+                                <button type="button" class="js-course-delete h-8 w-8 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" data-id="<?= (int)$c['id']; ?>">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>

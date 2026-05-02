@@ -28,6 +28,26 @@ class Database
     }
 }
 
+function cache_set(string $key, $value, int $ttl = 3600): void
+{
+    $dir = __DIR__ . '/../cache';
+    if (!is_dir($dir)) @mkdir($dir, 0777, true);
+    $data = ['expiry' => time() + $ttl, 'value' => $value];
+    @file_put_contents($dir . '/' . md5($key) . '.cache', serialize($data));
+}
+
+function cache_get(string $key)
+{
+    $file = __DIR__ . '/../cache/' . md5($key) . '.cache';
+    if (!file_exists($file)) return null;
+    $data = @unserialize(file_get_contents($file));
+    if (!$data || time() > $data['expiry']) {
+        @unlink($file);
+        return null;
+    }
+    return $data['value'];
+}
+
 function clean_input(?string $value): string
 {
     return trim(html_entity_decode((string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
@@ -450,9 +470,41 @@ function ensure_system_schema(mysqli $db): void
     if (!$indexExists('competition_participants', 'idx_competition_participants_competition')) {
         $db->query('ALTER TABLE competition_participants ADD INDEX idx_competition_participants_competition (competition_id)');
     }
+    if (!$indexExists('students', 'idx_students_yonalish')) {
+        $db->query('ALTER TABLE students ADD INDEX idx_students_yonalish (yonalish_id)');
+    }
     if (!$indexExists('competition_results', 'idx_competition_results_competition')) {
         $db->query('ALTER TABLE competition_results ADD INDEX idx_competition_results_competition (competition_id)');
     }
+
+    $db->query("
+      CREATE TABLE IF NOT EXISTS payment_types (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(50) NOT NULL UNIQUE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+    $db->query("INSERT IGNORE INTO payment_types (name) VALUES ('Naqd'), ('Karta'), ('Dollar')");
+
+    $db->query("
+      CREATE TABLE IF NOT EXISTS payments (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        project_id INT UNSIGNED NOT NULL,
+        student_id INT UNSIGNED NOT NULL,
+        amount DECIMAL(15,2) NOT NULL,
+        payment_type_id INT UNSIGNED NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_payments_project (project_id),
+        INDEX idx_payments_student (student_id),
+        INDEX idx_payments_type (payment_type_id),
+        CONSTRAINT fk_payments_project FOREIGN KEY (project_id)
+          REFERENCES projects(id) ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT fk_payments_student FOREIGN KEY (student_id)
+          REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE,
+        CONSTRAINT fk_payments_type FOREIGN KEY (payment_type_id)
+          REFERENCES payment_types(id) ON DELETE RESTRICT ON UPDATE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
+
     $db->query("INSERT INTO statuses (name) VALUES ('Rezident'), ('Kurs o''quvchi'), ('Talaba') ON DUPLICATE KEY UPDATE name = VALUES(name)");
     } finally {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
@@ -481,4 +533,11 @@ function json_response(bool $success, string $message, array $data = []): void
         'data' => $normalize($data),
     ], JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+if (!function_exists('mb_strlen')) {
+    function mb_strlen($str) { return strlen($str); }
+}
+if (!function_exists('mb_substr')) {
+    function mb_substr($str, $start, $length = null) { return substr($str, $start, $length); }
 }

@@ -215,8 +215,8 @@ if ($qTasks) {
             </label>
 
             <label class="block md:col-span-2">
-                <span class="text-sm font-medium text-slate-700">Fayl (ixtiyoriy)</span>
-                <input type="file" name="task_file" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                <span class="text-sm font-medium text-slate-700">Fayl (faqat PDF)</span>
+                <input type="file" name="task_file" accept=".pdf" class="mt-1 w-full border border-slate-300 rounded-lg px-3 py-2 text-sm">
             </label>
 
             <label class="block md:col-span-2">
@@ -251,6 +251,56 @@ if ($qTasks) {
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div id="tsm-detail-modal" class="fixed inset-0 hidden items-center justify-center p-4 z-50 bg-black/40">
+    <div class="w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <h3 id="tsm-detail-title" class="font-bold text-slate-800">Topshiriq nomi</h3>
+            <button id="tsm-detail-close" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="flex items-center gap-2 text-sm text-slate-500">
+                <i class="fa-solid fa-calendar-day"></i>
+                <span id="tsm-detail-date">2026-05-01</span>
+            </div>
+            <div id="tsm-detail-desc" class="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap">Izoh...</div>
+            <button id="tsm-detail-view-pdf" class="hidden inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors">
+                <i class="fa-solid fa-eye"></i>
+                PDF ko'rish
+            </button>
+            <a id="tsm-detail-file-download" href="#" target="_blank" class="hidden inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors">
+                <i class="fa-solid fa-download"></i>
+                Yuklab olish
+            </a>
+        </div>
+        <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+            <button id="tsm-detail-delete" class="h-9 w-9 rounded-xl border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-all duration-200 shadow-sm" title="O'chirish">
+                <i class="fa-solid fa-trash-can text-sm"></i>
+            </button>
+            <div class="flex gap-2">
+                <button id="tsm-detail-edit" class="h-9 w-9 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-all duration-200 shadow-sm" title="Tahrirlash">
+                    <i class="fa-solid fa-pen-to-square text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PDF Viewer Modal -->
+<div id="tsm-pdf-viewer-modal" class="fixed inset-0 hidden flex-col z-[60] bg-slate-900/90 backdrop-blur-sm">
+    <div class="flex items-center justify-between p-4 bg-slate-800 text-white">
+        <h3 id="tsm-pdf-title" class="font-medium truncate pr-4">PDF View</h3>
+        <div class="flex items-center gap-3">
+            <button id="tsm-pdf-close" class="h-10 w-10 flex items-center justify-center rounded-full hover:bg-slate-700 transition-colors">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+        </div>
+    </div>
+    <div class="flex-1 overflow-hidden relative bg-slate-200">
+        <iframe id="tsm-pdf-iframe" src="" class="w-full h-full border-none shadow-inner" style="background-color: #525659;"></iframe>
     </div>
 </div>
 
@@ -293,11 +343,123 @@ if ($qTasks) {
         }, 170);
     };
 
-    openBtn.addEventListener('click', openModal);
+    openBtn.addEventListener('click', () => {
+        form.reset();
+        form.querySelector('[name="id"]')?.remove();
+        form.querySelector('[name="action"]').value = 'create_task';
+        document.querySelector('#tsm-modal h3').textContent = 'Yangi topshiriq';
+        openModal();
+    });
     cancelBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
     });
+
+    const openDetailModal = async (id) => {
+        const res = await fetch(`../get/task_schedule_detail.php?id=${id}`).then(r => r.json());
+        if (!res.success) return toast('error', res.message);
+
+        const task = res.data;
+        const dModal = document.getElementById('tsm-detail-modal');
+        document.getElementById('tsm-detail-title').textContent = task.title;
+        document.getElementById('tsm-detail-date').textContent = task.deadline;
+        document.getElementById('tsm-detail-desc').textContent = task.description || 'Izoh yo\'q';
+        
+        const viewPdfBtn = document.getElementById('tsm-detail-view-pdf');
+        const downloadBtn = document.getElementById('tsm-detail-file-download');
+        
+        if (task.file_path) {
+            const url = '../' + task.file_path;
+            viewPdfBtn.classList.remove('hidden');
+            downloadBtn.classList.remove('hidden');
+            downloadBtn.href = url;
+            
+            viewPdfBtn.onclick = () => {
+                const pdfModal = document.getElementById('tsm-pdf-viewer-modal');
+                const iframe = document.getElementById('tsm-pdf-iframe');
+                document.getElementById('tsm-pdf-title').textContent = task.title;
+                iframe.src = url;
+                pdfModal.classList.remove('hidden');
+                pdfModal.classList.add('flex');
+            };
+        } else {
+            viewPdfBtn.classList.add('hidden');
+            downloadBtn.classList.add('hidden');
+        }
+        
+        document.getElementById('tsm-pdf-close').onclick = () => {
+            const pdfModal = document.getElementById('tsm-pdf-viewer-modal');
+            const iframe = document.getElementById('tsm-pdf-iframe');
+            iframe.src = '';
+            pdfModal.classList.add('hidden');
+            pdfModal.classList.remove('flex');
+        };
+
+        document.getElementById('tsm-detail-edit').onclick = () => {
+            closeDetailModal();
+            fillEditForm(task);
+        };
+        document.getElementById('tsm-detail-delete').onclick = async () => {
+            const confirmed = await Swal.fire({
+                title: 'Ishonchingiz komilmi?',
+                text: "Ushbu topshiriq butunlay o'chiriladi!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ha, o\'chirish!',
+                cancelButtonText: 'Bekor qilish'
+            });
+
+            if (confirmed.isConfirmed) {
+                const fd = new FormData();
+                fd.append('id', task.id);
+                const delRes = await fetch('../delete/task_schedule.php', { method: 'POST', body: fd }).then(r => r.json());
+                if (delRes.success) {
+                    calendar.getEventById(task.id).remove();
+                    closeDetailModal();
+                    toast('success', delRes.message);
+                } else {
+                    toast('error', delRes.message);
+                }
+            }
+        };
+
+        dModal.classList.remove('hidden');
+        dModal.classList.add('flex');
+    };
+
+    const closeDetailModal = () => {
+        const dModal = document.getElementById('tsm-detail-modal');
+        dModal.classList.add('hidden');
+        dModal.classList.remove('flex');
+    };
+
+    const fillEditForm = (task) => {
+        form.reset();
+        let idInput = form.querySelector('[name="id"]');
+        if (!idInput) {
+            idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'id';
+            form.appendChild(idInput);
+        }
+        idInput.value = task.id;
+        form.querySelector('[name="action"]').value = 'update_task';
+        form.title.value = task.title;
+        form.deadline.value = task.deadline;
+        form.description.value = task.description || '';
+        
+        const groups = task.target_groups || [];
+        form.querySelectorAll('input[name="target_groups[]"]').forEach(cb => {
+            cb.checked = groups.includes(cb.value);
+        });
+
+        document.querySelector('#tsm-modal h3').textContent = 'Topshiriqni tahrirlash';
+        openModal();
+    };
+
+    document.getElementById('tsm-detail-close').onclick = closeDetailModal;
 
     const calendar = new FullCalendar.Calendar(document.getElementById('tsm-calendar-root'), {
         initialView: 'dayGridMonth',
@@ -311,7 +473,7 @@ if ($qTasks) {
             right: 'dayGridMonth,timeGridWeek,listDay'
         },
         buttonText: {
-            today: 'Today',
+            today: 'Bugun',
             month: 'Oy',
             week: 'Xafta',
             list: 'Kun tartibi'
@@ -319,7 +481,10 @@ if ($qTasks) {
         eventContent: function(arg) {
             const short = arg.event.extendedProps.short || '';
             const shortHtml = short ? '<div style="font-size:11px;opacity:.95;line-height:1.2;">' + short + '</div>' : '';
-            return { html: '<div><div class="fc-event-title">' + arg.event.title + '</div>' + shortHtml + '</div>' };
+            return { html: '<div><div class="fc-event-title" style="white-space:normal;">' + arg.event.title + '</div>' + shortHtml + '</div>' };
+        },
+        eventClick: function(info) {
+            openDetailModal(info.event.id);
         },
         eventDrop: function(info) {
             const fd = new FormData();
@@ -335,7 +500,6 @@ if ($qTasks) {
                         toast('error', res.message || 'Yangilashda xatolik');
                         return;
                     }
-                    console.log('Task moved:', res.message);
                     toast('success', res.message || 'Sana yangilandi');
                 })
                 .catch(() => {
@@ -349,7 +513,10 @@ if ($qTasks) {
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         const fd = new FormData(form);
-        fetch('../insert/task_schedule.php', { method: 'POST', body: fd })
+        const action = fd.get('action');
+        const url = action === 'create_task' ? '../insert/task_schedule.php' : '../update/task_schedule.php';
+        
+        fetch(url, { method: 'POST', body: fd })
             .then(r => r.json())
             .then(res => {
                 if (!res.success) {
@@ -357,6 +524,8 @@ if ($qTasks) {
                     return;
                 }
                 if (res.data && res.data.event) {
+                    const existing = calendar.getEventById(res.data.event.id);
+                    if (existing) existing.remove();
                     calendar.addEvent(res.data.event);
                 }
                 form.reset();

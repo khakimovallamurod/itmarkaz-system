@@ -15,6 +15,7 @@ $pageMeta = [
     'statistics' => ['title' => 'Statistika', 'subtitle' => 'Asosiy ko\'rsatkichlar va top natijalar'],
     'teams' => ['title' => 'Upwork Jamoa', 'subtitle' => 'Jamoalarni yaratish va a\'zolarni boshqarish'],
     'projects' => ['title' => 'Loyihalar', 'subtitle' => 'Loyihalarni yaratish va status bo\'yicha boshqarish'],
+    'payments' => ['title' => 'Tijoratlar', 'subtitle' => 'Loyihalar bo\'yicha to\'lovlarni boshqarish va hisobotlar'],
     'directions' => ['title' => 'Sozlamalar', 'subtitle' => 'Yo\'nalishlarni boshqarish'],
     'statuses' => ['title' => 'Sozlamalar', 'subtitle' => 'Statuslarni boshqarish'],
 ];

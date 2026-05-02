@@ -59,7 +59,14 @@ $periodNames = $report['period_names'] ?? ['past' => [], 'upcoming_15' => [], 'u
                 <p class="text-sm text-slate-600 mt-2"><?= htmlspecialchars($shortDesc); ?></p>
                 <p class="text-xs text-slate-500 mt-2"><i class="fa-solid fa-location-dot mr-1"></i><?= htmlspecialchars($item['location'] ?: 'Manzil kiritilmagan'); ?></p>
                 <div class="flex items-center justify-between mt-3 text-xs text-slate-500"><span>Ishtirokchi: <?= (int) $item['participant_count']; ?></span><span>Natija: <?= (int) $item['result_count']; ?></span></div>
-                <div class="flex gap-2 mt-4" data-competition-actions><button type="button" class="js-competition-edit px-2 py-1 text-xs border rounded" data-item="<?= $data; ?>">Edit</button><button type="button" class="js-competition-delete px-2 py-1 text-xs bg-red-500 text-white rounded" data-id="<?= (int) $item['id']; ?>">Delete</button></div>
+                <div class="flex gap-2 mt-4" data-competition-actions>
+                    <button type="button" class="js-competition-edit h-8 w-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors" data-item="<?= $data; ?>" title="Tahrirlash">
+                        <i class="fa-solid fa-pen-to-square text-xs"></i>
+                    </button>
+                    <button type="button" class="js-competition-delete h-8 w-8 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" data-id="<?= (int) $item['id']; ?>" title="O'chirish">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                </div>
             </article>
         <?php endforeach; ?>
     </div>

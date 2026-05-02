@@ -24,8 +24,20 @@ function paginate_meta(int $total, int $page, int $perPage): array
     ];
 }
 
+function get_sort_sql(array $input, array $allowedFields, string $defaultSort, string $defaultOrder = 'DESC'): string
+{
+    $sortBy = qp_str($input, 'sort_by');
+    $sortOrder = strtoupper(qp_str($input, 'sort_order'));
+    if (!in_array($sortBy, $allowedFields, true)) $sortBy = $defaultSort;
+    if (!in_array($sortOrder, ['ASC', 'DESC'], true)) $sortOrder = $defaultOrder;
+    return " ORDER BY $sortBy $sortOrder";
+}
+
 function fetch_stats_data(mysqli $db): array
 {
+    $cached = cache_get('dashboard_stats');
+    if ($cached) return $cached;
+
     $safe = static function (string $sql) use ($db) {
         try {
             return $db->query($sql);
@@ -84,13 +96,64 @@ function fetch_stats_data(mysqli $db): array
        JOIN competitions c ON c.id = cr.competition_id)
       UNION ALL
       (SELECT 'team' activity_type, CONCAT('Jamoa yaratildi: ', team_name) AS title, created_at FROM teams)
+      UNION ALL
+      (SELECT 'payment' activity_type, CONCAT('To\'lov kiritildi: ', s.fio, ' - ', p.amount) AS title, p.created_at
+       FROM payments p
+       JOIN students s ON s.id = p.student_id)
+      UNION ALL
+      (SELECT 'project' activity_type, CONCAT('Loyiha yaratildi: ', project_name) AS title, created_at FROM projects)
       ORDER BY created_at DESC
-      LIMIT 8
+      LIMIT 10
     ";
     $recentRes = $safe($recentSql);
     if ($recentRes) $stats['recent_activity'] = $recentRes->fetch_all(MYSQLI_ASSOC);
 
-    return $stats;
+    // Payments summary
+    $stats['total_payments'] = $count('SELECT SUM(amount) cnt FROM payments');
+    $payTypeRes = $safe("SELECT pt.name, SUM(p.amount) as total FROM payments p JOIN payment_types pt ON pt.id = p.payment_type_id GROUP BY pt.name");
+    $stats['payments_by_type'] = $payTypeRes ? $payTypeRes->fetch_all(MYSQLI_ASSOC) : [];
+
+    // Course distribution (Operational)
+    $courseDistRes = $safe("SELECT c.name, COUNT(cs.id) as cnt FROM courses c LEFT JOIN course_students cs ON cs.course_id = c.id GROUP BY c.id, c.name ORDER BY cnt DESC LIMIT 6");
+    $stats['course_distribution'] = $courseDistRes ? $courseDistRes->fetch_all(MYSQLI_ASSOC) : [];
+
+    // Project status (Operational)
+    $projStatusRes = $safe("SELECT status, COUNT(*) as cnt FROM projects GROUP BY status");
+    $stats['projects_by_status'] = $projStatusRes ? $projStatusRes->fetch_all(MYSQLI_ASSOC) : [];
+
+    // Room occupancy (Resource)
+    $roomOccRes = $safe("SELECT room_number, computers_count, (SELECT COUNT(*) FROM residents r WHERE r.room_id = rooms.id) as residents_count FROM rooms");
+    $stats['rooms_occupancy'] = $roomOccRes ? $roomOccRes->fetch_all(MYSQLI_ASSOC) : [];
+
+    // Student directions (Deep Dive)
+    $dirDistRes = $safe("SELECT d.name, COUNT(s.id) as cnt FROM directions d LEFT JOIN students s ON s.yonalish_id = d.id GROUP BY d.id, d.name ORDER BY cnt DESC");
+    $stats['direction_distribution'] = $dirDistRes ? $dirDistRes->fetch_all(MYSQLI_ASSOC) : [];
+
+    $statsData = [
+        'dashboard' => [
+            'students' => $stats['students'],
+            'total_payments' => $stats['total_payments'],
+            'residents' => $stats['residents'],
+            'mentors' => $stats['mentors'],
+            'recent_activity' => $stats['recent_activity'],
+            'upcoming_competitions' => $stats['upcoming_competitions'],
+            'course_distribution' => $stats['course_distribution'],
+            'projects_by_status' => $stats['projects_by_status']
+        ],
+        'statistics' => [
+            'total_payments' => $stats['total_payments'],
+            'payments_by_type' => $stats['payments_by_type'],
+            'result_distribution' => $stats['result_distribution'],
+            'winners' => $stats['winners'],
+            'top_students' => $stats['top_students'],
+            'rooms_occupancy' => $stats['rooms_occupancy'],
+            'direction_distribution' => $stats['direction_distribution'],
+            'competitions_count' => $stats['competitions']
+        ]
+    ];
+
+    cache_set('dashboard_stats', $statsData, 300); 
+    return $statsData;
 }
 
 function load_page_options(mysqli $db, string $page): array
@@ -106,22 +169,40 @@ function load_page_options(mysqli $db, string $page): array
     $needsCompetitionResultTypes = in_array($page, ['competition_detail'], true);
     $needsStudentOptions = in_array($page, ['teams', 'projects', 'competition_detail'], true);
     $needsWeekDays = in_array($page, ['courses'], true);
+    $needsPaymentTypes = in_array($page, ['payments'], true);
+    $needsAllProjects = in_array($page, ['payments'], true);
 
     if ($needsDirections) {
-        $res = $db->query('SELECT id, name FROM directions ORDER BY name ASC');
-        $options['directions'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        $options['directions'] = cache_get('opt_directions');
+        if ($options['directions'] === null) {
+            $res = $db->query('SELECT id, name FROM directions ORDER BY name ASC');
+            $options['directions'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+            cache_set('opt_directions', $options['directions'], 3600);
+        }
     }
     if ($needsStatuses) {
-        $res = $db->query('SELECT id, name FROM statuses ORDER BY name ASC');
-        $options['statuses'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        $options['statuses'] = cache_get('opt_statuses');
+        if ($options['statuses'] === null) {
+            $res = $db->query('SELECT id, name FROM statuses ORDER BY name ASC');
+            $options['statuses'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+            cache_set('opt_statuses', $options['statuses'], 3600);
+        }
     }
     if ($needsRooms) {
-        $res = $db->query('SELECT id, room_number FROM rooms ORDER BY room_number ASC');
-        $options['rooms'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        $options['rooms'] = cache_get('opt_rooms');
+        if ($options['rooms'] === null) {
+            $res = $db->query('SELECT id, room_number FROM rooms ORDER BY room_number ASC');
+            $options['rooms'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+            cache_set('opt_rooms', $options['rooms'], 3600);
+        }
     }
     if ($needsCourses) {
-        $res = $db->query('SELECT id, name FROM courses ORDER BY name ASC');
-        $options['courses'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        $options['courses'] = cache_get('opt_courses');
+        if ($options['courses'] === null) {
+            $res = $db->query('SELECT id, name FROM courses ORDER BY name ASC');
+            $options['courses'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+            cache_set('opt_courses', $options['courses'], 3600);
+        }
     }
     if ($needsResidentStudents) {
         if ($page === 'mentors') {
@@ -173,6 +254,14 @@ function load_page_options(mysqli $db, string $page): array
         $res = $db->query('SELECT id, code, name FROM week_days ORDER BY id ASC');
         $options['week_days'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
     }
+    if ($needsPaymentTypes) {
+        $res = $db->query('SELECT id, name FROM payment_types ORDER BY id ASC');
+        $options['payment_types'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    }
+    if ($needsAllProjects) {
+        $res = $db->query('SELECT id, project_name FROM projects ORDER BY project_name ASC');
+        $options['all_projects'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+    }
 
     return $options;
 }
@@ -180,7 +269,8 @@ function load_page_options(mysqli $db, string $page): array
 function load_page_data(mysqli $db, string $page, array $input): array
 {
     if ($page === 'dashboard' || $page === 'statistics') {
-        return ['stats' => fetch_stats_data($db)];
+        $allStats = fetch_stats_data($db);
+        return ['stats' => $allStats[$page] ?? []];
     }
 
     if ($page === 'students') {
@@ -201,6 +291,13 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $total = (int) (($countStmt->get_result()->fetch_assoc()['cnt'] ?? 0));
         $meta = paginate_meta($total, $pageNum, $perPage);
 
+        // Additional counts for the bottom of the table
+        $totalStudents = (int) ($db->query("SELECT COUNT(*) FROM students")->fetch_row()[0] ?? 0);
+        $totalResidents = (int) ($db->query("SELECT COUNT(DISTINCT student_id) FROM student_status WHERE status_id = (SELECT id FROM statuses WHERE name = 'Rezident' LIMIT 1)")->fetch_row()[0] ?? 0);
+        $totalCourseStudents = (int) ($db->query("SELECT COUNT(DISTINCT student_id) FROM student_status WHERE status_id = (SELECT id FROM statuses WHERE name = 'Kurs o\'quvchi' LIMIT 1)")->fetch_row()[0] ?? 0);
+
+        $sortSql = get_sort_sql($input, ['s.id', 's.fio', 'd.name', 's.guruh', 's.kirgan_yili'], 's.id', 'DESC');
+
         $sql = "
           SELECT
             s.id, s.fio, s.yonalish_id, d.name AS yonalish, s.guruh, s.kirgan_yili, s.telefon, s.telegram_chat_id,
@@ -213,24 +310,39 @@ function load_page_data(mysqli $db, string $page, array $input): array
           WHERE (s.fio LIKE ? OR d.name LIKE ? OR s.guruh LIKE ?)
           " . ($directionId > 0 ? ' AND s.yonalish_id=? ' : '') . "
           GROUP BY s.id, s.fio, s.yonalish_id, d.name, s.guruh, s.kirgan_yili, s.telefon, s.telegram_chat_id
-          ORDER BY s.id DESC
+          $sortSql
           LIMIT ? OFFSET ?
         ";
         $stmt = $db->prepare($sql);
         if ($directionId > 0) {
             $stmt->bind_param('sssiii', $q, $q, $q, $directionId, $meta['per_page'], $meta['offset']);
         } else {
-            $stmt->bind_param('sssii', $q, $q, $q, $meta['per_page'], $meta['offset']);
+            $stmt->bind_param('ssiii', $q, $q, $q, $meta['per_page'], $meta['offset']);
         }
         $stmt->execute();
-        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-        foreach ($rows as &$row) {
-            $row['statuses'] = trim((string) ($row['status_names'] ?? '')) === '' ? [] : explode('||', (string) $row['status_names']);
-            $row['status_ids'] = trim((string) ($row['status_ids_raw'] ?? '')) === '' ? [] : array_map('intval', explode('||', (string) $row['status_ids_raw']));
-        }
-        unset($row);
+        $students = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-        return ['items' => $rows, 'pagination' => $meta, 'filters' => ['search' => $search, 'direction_id' => $directionId]];
+        foreach ($students as &$s) {
+            $s['status_ids'] = !empty($s['status_ids_raw']) ? explode('||', $s['status_ids_raw']) : [];
+            $s['statuses'] = !empty($s['status_names']) ? explode('||', $s['status_names']) : [];
+        }
+        unset($s);
+
+        return [
+            'items' => $students,
+            'pagination' => $meta,
+            'stats' => [
+                'total' => $totalStudents,
+                'residents' => $totalResidents,
+                'course_students' => $totalCourseStudents
+            ],
+            'filters' => [
+                'search' => $search,
+                'direction_id' => $directionId,
+                'sort_by' => qp_str($input, 'sort_by', 's.id'),
+                'sort_order' => strtoupper(qp_str($input, 'sort_order', 'DESC'))
+            ]
+        ];
     }
 
     if ($page === 'residents') {
@@ -256,19 +368,30 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $total = (int) (($countStmt->get_result()->fetch_assoc()['cnt'] ?? 0));
         $meta = paginate_meta($total, $pageNum, $perPage);
 
+        $sortSql = get_sort_sql($input, ['r.id', 's.fio', 'rm.room_number', 'r.computer_number'], 's.fio', 'ASC');
+
         $sql = "
           SELECT DISTINCT r.id, s.id AS student_id, s.fio, rm.id AS room_id, rm.room_number, r.computer_number
           FROM students s
           LEFT JOIN residents r ON r.student_id=s.id
           LEFT JOIN rooms rm ON rm.id=r.room_id
           WHERE s.fio LIKE ? {$statusSql}
-          ORDER BY s.fio ASC
+          $sortSql
           LIMIT ? OFFSET ?
         ";
         $stmt = $db->prepare($sql);
         $stmt->bind_param('sii', $q, $meta['per_page'], $meta['offset']);
         $stmt->execute();
-        return ['items' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pagination' => $meta, 'filters' => ['search' => $search, 'status' => $status]];
+        return [
+            'items' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC), 
+            'pagination' => $meta, 
+            'filters' => [
+                'search' => $search, 
+                'status' => $status,
+                'sort_by' => qp_str($input, 'sort_by', 's.fio'),
+                'sort_order' => strtoupper(qp_str($input, 'sort_order', 'ASC'))
+            ]
+        ];
     }
 
     if ($page === 'course_students') {
@@ -296,6 +419,8 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $total = (int) (($countStmt->get_result()->fetch_assoc()['cnt'] ?? 0));
         $meta = paginate_meta($total, $pageNum, $perPage);
 
+        $sortSql = get_sort_sql($input, ['s.fio', 'c.name', 'r.room_number', 'cs.status'], 's.fio', 'ASC');
+
         $sql = "
           SELECT DISTINCT s.id AS student_id, s.fio, cs.id, cs.course_id, c.name AS course_name, cs.room_id, r.room_number, cs.status
           FROM students s
@@ -303,7 +428,7 @@ function load_page_data(mysqli $db, string $page, array $input): array
           LEFT JOIN courses c ON c.id=cs.course_id
           LEFT JOIN rooms r ON r.id=cs.room_id
           WHERE s.fio LIKE ? {$statusSql}
-          ORDER BY s.fio ASC
+          $sortSql
           LIMIT ? OFFSET ?
         ";
         $stmt = $db->prepare($sql);
@@ -313,7 +438,16 @@ function load_page_data(mysqli $db, string $page, array $input): array
             $stmt->bind_param('sii', $q, $meta['per_page'], $meta['offset']);
         }
         $stmt->execute();
-        return ['items' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pagination' => $meta, 'filters' => ['search' => $search, 'status' => $status]];
+        return [
+            'items' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC), 
+            'pagination' => $meta, 
+            'filters' => [
+                'search' => $search, 
+                'status' => $status,
+                'sort_by' => qp_str($input, 'sort_by', 's.fio'),
+                'sort_order' => strtoupper(qp_str($input, 'sort_order', 'ASC'))
+            ]
+        ];
     }
 
     if ($page === 'rooms') {
@@ -322,10 +456,18 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $totalRes = $db->query('SELECT COUNT(*) cnt FROM rooms');
         $total = (int) (($totalRes ? $totalRes->fetch_assoc()['cnt'] : 0) ?? 0);
         $meta = paginate_meta($total, $pageNum, $perPage);
-        $stmt = $db->prepare('SELECT id, room_number, capacity, computers_count FROM rooms ORDER BY id DESC LIMIT ? OFFSET ?');
+        $sortSql = get_sort_sql($input, ['id', 'room_number', 'capacity', 'computers_count'], 'id', 'DESC');
+        $stmt = $db->prepare("SELECT id, room_number, capacity, computers_count FROM rooms $sortSql LIMIT ? OFFSET ?");
         $stmt->bind_param('ii', $meta['per_page'], $meta['offset']);
         $stmt->execute();
-        return ['items' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'pagination' => $meta];
+        return [
+            'items' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC), 
+            'pagination' => $meta,
+            'filters' => [
+                'sort_by' => qp_str($input, 'sort_by', 'id'),
+                'sort_order' => strtoupper(qp_str($input, 'sort_order', 'DESC'))
+            ]
+        ];
     }
 
     if ($page === 'courses') {
@@ -602,14 +744,18 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $stmt->execute();
         $teams = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-        $memberStmt = $db->prepare('SELECT tm.id, tm.team_id, tm.student_id, s.fio FROM team_members tm JOIN students s ON s.id=tm.student_id WHERE tm.team_id=? ORDER BY s.fio ASC');
-        foreach ($teams as &$team) {
-            $teamId = (int) $team['id'];
-            $memberStmt->bind_param('i', $teamId);
-            $memberStmt->execute();
-            $team['members'] = $memberStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $teamIds = array_column($teams, 'id');
+        if (!empty($teamIds)) {
+            $placeholders = implode(',', array_fill(0, count($teamIds), '?'));
+            $mStmt = $db->prepare("SELECT tm.id, tm.team_id, tm.student_id, s.fio FROM team_members tm JOIN students s ON s.id=tm.student_id WHERE tm.team_id IN ($placeholders) ORDER BY s.fio ASC");
+            $mStmt->bind_param(str_repeat('i', count($teamIds)), ...$teamIds);
+            $mStmt->execute();
+            $allMembers = $mStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $grouped = [];
+            foreach ($allMembers as $m) $grouped[$m['team_id']][] = $m;
+            foreach ($teams as &$t) $t['members'] = $grouped[$t['id']] ?? [];
         }
-        unset($team);
+        unset($t);
 
         return ['items' => $teams, 'pagination' => $meta, 'filters' => ['level' => $level]];
     }
@@ -639,16 +785,115 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $stmt->execute();
         $projects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-        $memberStmt = $db->prepare('SELECT pm.id, pm.project_id, pm.student_id, s.fio FROM project_members pm JOIN students s ON s.id=pm.student_id WHERE pm.project_id=? ORDER BY s.fio ASC');
-        foreach ($projects as &$project) {
-            $projectId = (int) $project['id'];
-            $memberStmt->bind_param('i', $projectId);
-            $memberStmt->execute();
-            $project['members'] = $memberStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $projectIds = array_column($projects, 'id');
+        if (!empty($projectIds)) {
+            $placeholders = implode(',', array_fill(0, count($projectIds), '?'));
+            $mStmt = $db->prepare("SELECT pm.id, pm.project_id, pm.student_id, s.fio FROM project_members pm JOIN students s ON s.id=pm.student_id WHERE pm.project_id IN ($placeholders) ORDER BY s.fio ASC");
+            $mStmt->bind_param(str_repeat('i', count($projectIds)), ...$projectIds);
+            $mStmt->execute();
+            $allMembers = $mStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $grouped = [];
+            foreach ($allMembers as $m) $grouped[$m['project_id']][] = $m;
+            foreach ($projects as &$p) $p['members'] = $grouped[$p['id']] ?? [];
         }
-        unset($project);
+        unset($p);
 
         return ['items' => $projects, 'pagination' => $meta, 'filters' => ['status' => $status]];
+    }
+
+    if ($page === 'payments') {
+        $search = qp_str($input, 'search');
+        $projectId = qp_int($input, 'project_id', 0, 0);
+        $typeId = qp_int($input, 'payment_type_id', 0, 0);
+        $dateFrom = qp_str($input, 'date_from');
+        $dateTo = qp_str($input, 'date_to');
+        $pageNum = qp_int($input, 'p', 1, 1);
+        $perPage = 15;
+
+        $whereParts = ['1=1'];
+        $params = [];
+        $types = '';
+
+        if ($search !== '') {
+            $whereParts[] = '(s.fio LIKE ? OR pr.project_name LIKE ?)';
+            $q = "%$search%";
+            $params[] = $q; $params[] = $q;
+            $types .= 'ss';
+        }
+        if ($projectId > 0) {
+            $whereParts[] = 'p.project_id = ?';
+            $params[] = $projectId;
+            $types .= 'i';
+        }
+        if ($typeId > 0) {
+            $whereParts[] = 'p.payment_type_id = ?';
+            $params[] = $typeId;
+            $types .= 'i';
+        }
+        if ($dateFrom !== '') {
+            $whereParts[] = 'DATE(p.created_at) >= ?';
+            $params[] = $dateFrom;
+            $types .= 's';
+        }
+        if ($dateTo !== '') {
+            $whereParts[] = 'DATE(p.created_at) <= ?';
+            $params[] = $dateTo;
+            $types .= 's';
+        }
+
+        $whereSql = implode(' AND ', $whereParts);
+
+        // Sort
+        $sortSql = get_sort_sql($input, ['p.id', 'student_fio', 'pr.project_name', 'p.amount', 'p.created_at'], 'p.id', 'DESC');
+
+        // Total sum for current filters (without pagination)
+        $totalSumSql = "SELECT SUM(p.amount) as total FROM payments p JOIN students s ON s.id = p.student_id JOIN projects pr ON pr.id = p.project_id WHERE $whereSql";
+        $totalSumStmt = $db->prepare($totalSumSql);
+        if ($params) $totalSumStmt->bind_param($types, ...$params);
+        $totalSumStmt->execute();
+        $totalSum = (float) ($totalSumStmt->get_result()->fetch_assoc()['total'] ?? 0);
+
+        // Count for pagination
+        $countSql = "SELECT COUNT(*) as cnt FROM payments p JOIN students s ON s.id = p.student_id JOIN projects pr ON pr.id = p.project_id WHERE $whereSql";
+        $countStmt = $db->prepare($countSql);
+        if ($params) $countStmt->bind_param($types, ...$params);
+        $countStmt->execute();
+        $totalCount = (int) ($countStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
+        $meta = paginate_meta($totalCount, $pageNum, $perPage);
+
+        // Main data
+        $sql = "
+          SELECT p.*, s.fio as student_fio, pr.project_name, pt.name as type_name
+          FROM payments p
+          JOIN students s ON s.id = p.student_id
+          JOIN projects pr ON pr.id = p.project_id
+          JOIN payment_types pt ON pt.id = p.payment_type_id
+          WHERE $whereSql
+          $sortSql
+          LIMIT ? OFFSET ?
+        ";
+        $stmt = $db->prepare($sql);
+        $params[] = $meta['per_page'];
+        $params[] = $meta['offset'];
+        $types .= 'ii';
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $items = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        return [
+            'items' => $items,
+            'total_sum' => $totalSum,
+            'pagination' => $meta,
+            'filters' => [
+                'search' => $search,
+                'project_id' => $projectId,
+                'payment_type_id' => $typeId,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
+                'sort_by' => qp_str($input, 'sort_by', 'p.id'),
+                'sort_order' => strtoupper(qp_str($input, 'sort_order', 'DESC'))
+            ]
+        ];
     }
 
     return [];

@@ -85,11 +85,19 @@ function setupSidebar() {
   }
 
   const setCollapsed = (isCollapsed) => {
+    const isMobile = window.innerWidth < 768;
     sidebar.classList.toggle('md:w-24', isCollapsed);
     sidebar.classList.toggle('md:w-72', !isCollapsed);
     mainShell.classList.toggle('md:pl-24', isCollapsed);
     mainShell.classList.toggle('md:pl-72', !isCollapsed);
-    document.querySelectorAll('.sidebar-label').forEach((el) => el.classList.toggle('hidden', isCollapsed));
+    
+    document.querySelectorAll('.sidebar-label').forEach((el) => {
+      if (isMobile) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.toggle('hidden', isCollapsed);
+      }
+    });
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isCollapsed ? '1' : '0');
   };
 
@@ -97,6 +105,16 @@ function setupSidebar() {
   qs('sidebarCollapseBtn')?.addEventListener('click', () => setCollapsed(!sidebar.classList.contains('md:w-24')));
   qs('sidebarToggle')?.addEventListener('click', () => { sidebar.classList.toggle('-translate-x-full'); overlay?.classList.toggle('hidden'); });
   overlay?.addEventListener('click', () => { sidebar.classList.add('-translate-x-full'); overlay?.classList.add('hidden'); });
+
+  // Auto-hide sidebar on mobile after clicking a link
+  sidebar.querySelectorAll('a.sidebar-link').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth < 768) {
+        sidebar.classList.add('-translate-x-full');
+        overlay?.classList.add('hidden');
+      }
+    });
+  });
 }
 
 function setupProfileDropdown() {
@@ -179,6 +197,24 @@ function setupPhoneInputs() {
   document.querySelectorAll('input[data-phone-input]').forEach((input) => {
     if (!input.value.trim()) input.value = '+998';
     input.addEventListener('input', () => { input.value = formatUzPhoneInput(input.value); });
+  });
+}
+
+function formatNumberWithSpaces(value) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function setupNumberInputs() {
+  document.querySelectorAll('input[data-number-format]').forEach((input) => {
+    input.value = formatNumberWithSpaces(input.value);
+    input.addEventListener('input', () => {
+      const start = input.selectionStart;
+      const oldLen = input.value.length;
+      input.value = formatNumberWithSpaces(input.value);
+      const newLen = input.value.length;
+      input.setSelectionRange(start + (newLen - oldLen), start + (newLen - oldLen));
+    });
   });
 }
 
@@ -433,6 +469,45 @@ function fillMentor(mentor) {
   f.course_id.value = mentor.course_id || '';
 }
 
+async function loadProjectMembers(projectId, targetSelect, selectedId = null) {
+  if (!projectId) {
+    targetSelect.innerHTML = '<option value="">Loyihani tanlang...</option>';
+    targetSelect.disabled = true;
+    return;
+  }
+  targetSelect.innerHTML = '<option value="">Yuklanmoqda...</option>';
+  targetSelect.disabled = true;
+  const res = await apiFetch(`../get/project_members.php?project_id=${projectId}`);
+  if (res.success) {
+    const members = res.data || [];
+    targetSelect.innerHTML = members.length 
+      ? '<option value="">Talabani tanlang</option>' + members.map(m => `<option value="${m.id}" ${Number(m.id) === Number(selectedId) ? 'selected' : ''}>${escapeHtml(m.fio)}</option>`).join('')
+      : '<option value="">Ushbu loyihada talabalar yo\'q</option>';
+    targetSelect.disabled = !members.length;
+  }
+}
+
+function openPaymentModal() { 
+  openModal('paymentModal'); 
+  qs('paymentForm')?.reset(); 
+  qs('paymentId').value = '';
+  qs('paymentModalTitle').textContent = 'To\'lov kiritish';
+  qs('paymentStudentSelect').disabled = true;
+  qs('paymentStudentSelect').innerHTML = '<option value="">Loyihani tanlang...</option>';
+}
+function closePaymentModal() { closeModal('paymentModal'); }
+async function fillPayment(item) {
+  openPaymentModal();
+  qs('paymentModalTitle').textContent = 'To\'lovni tahrirlash';
+  const f = qs('paymentForm');
+  qs('paymentId').value = item.id;
+  f.project_id.value = item.project_id;
+  f.amount.value = item.amount;
+  f.payment_type_id.value = item.payment_type_id;
+  // Load members and select the student
+  await loadProjectMembers(item.project_id, qs('paymentStudentSelect'), item.student_id);
+}
+
 function openDirectionModal() { openModal('directionModal'); qs('directionForm')?.reset(); }
 function closeDirectionModal() { closeModal('directionModal'); }
 function fillDirection(d) { openDirectionModal(); qs('directionId').value = d.id; qs('directionName').value = d.name || ''; }
@@ -629,6 +704,8 @@ function closeProjectModal() { closeModal('projectModal'); }
 function openProjectMemberModal(projectId) { openModal('projectMemberModal'); qs('projectMemberProjectId').value = projectId; initSelect2ForElement(qs('projectMemberStudentSelect'), 'Talabani tanlang', 'projectMemberModal'); }
 function closeProjectMemberModal() { closeModal('projectMemberModal'); }
 
+
+
 function setupScheduleViewToggle() {
   const tableWrap = qs('scheduleTableWrap');
   const grid = qs('scheduleGrid');
@@ -810,12 +887,36 @@ function setupTableActions() {
         return;
       }
       if (btn.classList.contains('js-project-member-open')) return openProjectMemberModal(btn.dataset.projectId || '0');
+      if (btn.classList.contains('js-payment-edit')) {
+        return fillPayment(JSON.parse(btn.dataset.item));
+      }
+      if (btn.classList.contains('js-payment-delete')) {
+        const ok = await confirmAction(); if (!ok.isConfirmed) return;
+        const fd = new FormData(); fd.append('id', btn.dataset.id || '0');
+        const res = await apiFetch('../delete/payment.php', { method: 'POST', body: fd });
+        toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
+        return;
+      }
     }
 
     const card = event.target.closest('[data-open-competition]');
     if (!card) return;
     if (event.target.closest('[data-competition-actions]')) return;
     window.location.href = `index.php?page=competition_detail&id=${card.dataset.openCompetition}`;
+  });
+
+  document.querySelectorAll('th[data-sort]').forEach((th) => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const sortBy = th.dataset.sort;
+      const url = new URL(window.location.href);
+      const currentSort = url.searchParams.get('sort_by');
+      const currentOrder = url.searchParams.get('sort_order') || 'asc';
+      const nextOrder = (currentSort === sortBy && currentOrder === 'asc') ? 'desc' : 'asc';
+      url.searchParams.set('sort_by', sortBy);
+      url.searchParams.set('sort_order', nextOrder);
+      window.location.href = url.toString();
+    });
   });
 }
 
@@ -986,7 +1087,10 @@ function setupForms() {
     if (competitionResultManager?.hasDuplicate()) return toast('error', 'Bir xil talaba ikki marta tanlandi.');
     const selected = competitionResultManager?.selectedValues() || [];
     if (!selected.length) return toast('error', 'Kamida bitta talaba tanlang.');
-    const res = await apiFetch('../insert/competition_result.php', { method: 'POST', body: new FormData(e.target) });
+    const fd = new FormData(e.target);
+    const cash = fd.get('cash_amount')?.replace(/\s/g, '');
+    if (cash) fd.set('cash_amount', cash);
+    const res = await apiFetch('../insert/competition_result.php', { method: 'POST', body: fd });
     toast(res.success ? 'success' : 'error', res.message); if (res.success) reloadPage();
   });
 
@@ -1040,6 +1144,25 @@ function setupForms() {
     const res = await apiFetch('../api/auth.php?action=logout', { method: 'POST' });
     if (res.success) window.location.href = '../index.php';
   });
+
+  qs('paymentProjectSelect')?.addEventListener('change', (e) => {
+    loadProjectMembers(e.target.value, qs('paymentStudentSelect'));
+  });
+
+  qs('paymentForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    // Format amount (remove spaces)
+    const amountVal = fd.get('amount');
+    if (amountVal) {
+      fd.set('amount', String(amountVal).replace(/\s/g, ''));
+    }
+    const id = fd.get('id');
+    const url = id ? '../update/payment.php' : '../insert/payment.php';
+    const res = await apiFetch(url, { method: 'POST', body: fd });
+    toast(res.success ? 'success' : 'error', res.message);
+    if (res.success) { closePaymentModal(); reloadPage(); }
+  });
 }
 
 function setupPageButtons() {
@@ -1088,6 +1211,7 @@ setupProfileDropdown();
 setupCalendar();
 setupGlobalSearch();
 setupPhoneInputs();
+setupNumberInputs();
 updateStudentAutoCourse();
 setupTableActions();
 setupForms();
@@ -1096,6 +1220,24 @@ setupInlineSelectActions();
 setupAutoFilters();
 setupScheduleViewToggle();
 setupCharts();
+
+// Global click listeners
+document.addEventListener('click', (e) => {
+  // Close modals on outside click
+  if (e.target.classList.contains('admin-modal')) {
+    const closeBtn = e.target.querySelector('[id$="CloseBtn"], [id$="-close"]');
+    if (closeBtn) closeBtn.click();
+    else e.target.classList.add('hidden');
+  }
+
+  // Close profile dropdown on outside click
+  const profileBtn = qs('profileMenuBtn');
+  const profileDropdown = qs('profileDropdown');
+  if (profileBtn && profileDropdown && !profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+    profileDropdown.classList.remove('opacity-100', 'translate-y-0');
+    profileDropdown.classList.add('opacity-0', 'translate-y-1', 'pointer-events-none');
+  }
+});
 
 window.openStudentModal = openStudentModal;
 window.closeStudentModal = closeStudentModal;
@@ -1127,3 +1269,5 @@ window.closeTeamModal = closeTeamModal;
 window.closeTeamMemberModal = closeTeamMemberModal;
 window.closeProjectModal = closeProjectModal;
 window.closeProjectMemberModal = closeProjectMemberModal;
+window.openPaymentModal = openPaymentModal;
+window.closePaymentModal = closePaymentModal;

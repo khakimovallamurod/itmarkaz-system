@@ -58,8 +58,10 @@ if (!empty($_FILES['task_file']['name']) && (int) ($_FILES['task_file']['error']
     }
     $originalName = basename((string) $_FILES['task_file']['name']);
     $ext = strtolower((string) pathinfo($originalName, PATHINFO_EXTENSION));
-    $safeExt = preg_replace('/[^a-z0-9]/', '', $ext);
-    $fileName = uniqid('task_', true) . ($safeExt !== '' ? '.' . $safeExt : '');
+    if ($ext !== 'pdf') {
+        json_response(false, 'Faqat PDF fayl yuklashga ruxsat berilgan.');
+    }
+    $fileName = uniqid('task_', true) . '.pdf';
     $targetPath = $uploadDir . '/' . $fileName;
     if (!move_uploaded_file((string) $_FILES['task_file']['tmp_name'], $targetPath)) {
         json_response(false, 'Fayl yuklashda xatolik.');

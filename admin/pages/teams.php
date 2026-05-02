@@ -10,27 +10,35 @@ $teamLevels = [
 ];
 ?>
 <div class="p-4 space-y-4">
-    <div class="bg-white rounded-xl p-4 shadow flex flex-wrap gap-2 items-center justify-between">
-        <div><h2 class="font-semibold">Upwork Jamoa</h2><p class="text-xs text-slate-500">Jamoa yaratish, a'zolarni qo'shish va chiqarish</p></div>
-        <button id="openTeamCreateModalBtn" class="px-4 py-2 bg-emerald-800 text-white rounded">+ Jamoa yaratish</button>
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-800">Upwork Jamoalari</h2>
+            <p class="text-slate-500 text-sm">Jamoalarni boshqarish, a'zolar tarkibi va darajalarini sozlash.</p>
+        </div>
+        <button id="openTeamCreateModalBtn" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 font-semibold text-sm">
+            <i class="fa-solid fa-plus"></i>
+            Jamoa yaratish
+        </button>
     </div>
 
-    <form method="get" class="bg-white rounded-xl p-4 shadow">
+    <form method="get" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-wrap gap-4 items-center">
         <input type="hidden" name="page" value="teams">
-        <div class="grid md:grid-cols-3 gap-3">
-            <label class="form-field">
-                <span class="form-label">Jamoa darajasi filtri</span>
-                <select name="level" class="form-input">
-                    <option value="">Barcha darajalar</option>
-                    <?php foreach ($teamLevels as $levelKey => $levelLabel): ?>
-                        <option value="<?= $levelKey; ?>" <?= (($filters['level'] ?? '') === $levelKey) ? 'selected' : ''; ?>><?= $levelLabel; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <div class="form-field">
-                <span class="form-label opacity-0 select-none">Action</span>
-                <a href="?page=teams" class="px-4 py-2 border rounded inline-flex items-center justify-center">Tozalash</a>
-            </div>
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <select name="level" class="w-full md:w-60 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-emerald-500 outline-none transition-all">
+                <option value="">Barcha darajalar</option>
+                <?php foreach ($teamLevels as $levelKey => $levelLabel): ?>
+                    <option value="<?= $levelKey; ?>" <?= (($filters['level'] ?? '') === $levelKey) ? 'selected' : ''; ?>><?= $levelLabel; ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="h-10 px-5 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all shadow-sm flex items-center gap-2 text-sm font-medium">
+                <i class="fa-solid fa-filter"></i>
+                <span>Filter</span>
+            </button>
+            <?php if (!empty($filters['level'])): ?>
+                <a href="index.php?page=teams" class="h-10 w-10 flex items-center justify-center bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition-all border border-rose-100" title="Tozalash">
+                    <i class="fa-solid fa-filter-circle-xmark"></i>
+                </a>
+            <?php endif; ?>
         </div>
     </form>
 
@@ -46,7 +54,9 @@ $teamLevels = [
                                 <option value="<?= $levelKey; ?>" <?= (($team['level'] ?? 'middle') === $levelKey) ? 'selected' : ''; ?>><?= $levelLabel; ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <button type="button" class="js-team-delete text-xs px-2 py-1 rounded bg-red-500 text-white" data-id="<?= (int)$team['id']; ?>">O'chirish</button>
+                        <button type="button" class="js-team-delete h-8 w-8 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" data-id="<?= (int)$team['id']; ?>" title="Jamoani o'chirish">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
                     </div>
                 </div>
                 <p class="text-xs text-slate-500 mt-1">A'zolar: <?= count($team['members'] ?? []); ?></p>

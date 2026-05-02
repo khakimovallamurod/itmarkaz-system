@@ -11,27 +11,35 @@ $statusOptions = [
 ];
 ?>
 <div class="p-4 space-y-4">
-    <div class="bg-white rounded-xl p-4 shadow flex flex-wrap gap-2 items-center justify-between">
-        <div><h2 class="font-semibold">Loyihalar</h2><p class="text-xs text-slate-500">Loyiha yaratish, statusni boshqarish va a'zolarni yuritish</p></div>
-        <button id="openProjectCreateModalBtn" class="px-4 py-2 bg-emerald-800 text-white rounded">+ Loyiha yaratish</button>
+    <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-800">Loyihalar</h2>
+            <p class="text-slate-500 text-sm">Loyihalar ro'yxati, statuslar va jamoalar tarkibini boshqarish.</p>
+        </div>
+        <button id="openProjectCreateModalBtn" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl shadow-sm hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 font-semibold text-sm">
+            <i class="fa-solid fa-plus"></i>
+            Loyiha yaratish
+        </button>
     </div>
 
-    <form method="get" class="bg-white rounded-xl p-4 shadow">
+    <form method="get" class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-wrap gap-4 items-center">
         <input type="hidden" name="page" value="projects">
-        <div class="grid md:grid-cols-3 gap-3">
-            <label class="form-field">
-                <span class="form-label">Loyiha holati filtri</span>
-                <select name="status" class="form-input">
-                    <option value="">Barcha holatlar</option>
-                    <?php foreach ($statusOptions as $key => $label): ?>
-                        <option value="<?= $key; ?>" <?= (($filters['status'] ?? '') === $key) ? 'selected' : ''; ?>><?= $label; ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-            <div class="form-field">
-                <span class="form-label opacity-0 select-none">Action</span>
-                <a href="?page=projects" class="px-4 py-2 border rounded inline-flex items-center justify-center">Tozalash</a>
-            </div>
+        <div class="flex items-center gap-3 w-full md:w-auto">
+            <select name="status" class="w-full md:w-60 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-emerald-500 outline-none transition-all">
+                <option value="">Barcha holatlar</option>
+                <?php foreach ($statusOptions as $key => $label): ?>
+                    <option value="<?= $key; ?>" <?= (($filters['status'] ?? '') === $key) ? 'selected' : ''; ?>><?= $label; ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="h-10 px-5 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all shadow-sm flex items-center gap-2 text-sm font-medium">
+                <i class="fa-solid fa-filter"></i>
+                <span>Filter</span>
+            </button>
+            <?php if (!empty($filters['status'])): ?>
+                <a href="index.php?page=projects" class="h-10 w-10 flex items-center justify-center bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition-all border border-rose-100" title="Tozalash">
+                    <i class="fa-solid fa-filter-circle-xmark"></i>
+                </a>
+            <?php endif; ?>
         </div>
     </form>
 
@@ -47,7 +55,9 @@ $statusOptions = [
                                 <option value="<?= $key; ?>" <?= (($project['status'] ?? 'boshlanish') === $key) ? 'selected' : ''; ?>><?= $label; ?></option>
                             <?php endforeach; ?>
                         </select>
-                        <button type="button" class="js-project-delete text-xs px-2 py-1 rounded bg-red-500 text-white" data-id="<?= (int) $project['id']; ?>">O'chirish</button>
+                        <button type="button" class="js-project-delete h-8 w-8 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" data-id="<?= (int) $project['id']; ?>" title="Loyihani o'chirish">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
                     </div>
                 </div>
                 <p class="text-xs text-slate-500 mt-1">A'zolar: <?= count($project['members'] ?? []); ?></p>

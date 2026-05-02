@@ -252,3 +252,29 @@ INSERT INTO week_days (code, name) VALUES
 ('Sat', 'Shanba'),
 ('Sun', 'Yakshanba')
 ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+CREATE TABLE IF NOT EXISTS payment_types (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+INSERT INTO payment_types (name) VALUES ('Naqd'), ('Karta'), ('Dollar')
+ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  project_id INT UNSIGNED NOT NULL,
+  student_id INT UNSIGNED NOT NULL,
+  amount DECIMAL(15,2) NOT NULL,
+  payment_type_id INT UNSIGNED NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_payments_project (project_id),
+  INDEX idx_payments_student (student_id),
+  INDEX idx_payments_type (payment_type_id),
+  CONSTRAINT fk_payments_project FOREIGN KEY (project_id)
+    REFERENCES projects(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_payments_student FOREIGN KEY (student_id)
+    REFERENCES students(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_payments_type FOREIGN KEY (payment_type_id)
+    REFERENCES payment_types(id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;

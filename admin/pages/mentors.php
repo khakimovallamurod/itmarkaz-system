@@ -11,14 +11,33 @@ $courses = $pageOptions['courses'] ?? [];
     </div>
     <div class="bg-white rounded-xl shadow p-4 overflow-auto">
         <div class="table-shell">
-            <table class="admin-table">
-                <colgroup><col style="width: 40%;"><col style="width: 40%;"><col style="width: 20%;"></colgroup>
-                <thead><tr><th>FIO</th><th>Kurs</th><th>Actions</th></tr></thead>
+            <table class="admin-table w-full">
+                <colgroup><col style="width: 60px;"><col style="width: 40%;"><col style="width: 35%;"><col style="width: 20%;"></colgroup>
+                <thead><tr><th class="px-4 py-3">#</th><th class="px-4 py-3 text-left">FIO</th><th class="px-4 py-3 text-left">Kurs</th><th class="px-4 py-3 text-right">Amallar</th></tr></thead>
                 <tbody>
-                <?php if (!$items): ?><tr><td colspan="3" class="text-center text-slate-500">Ma'lumot topilmadi</td></tr><?php endif; ?>
-                <?php foreach ($items as $m): ?>
-                    <?php $rowJson = htmlspecialchars(json_encode($m, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); ?>
-                    <tr><td><?= htmlspecialchars($m['fio']); ?></td><td><?= htmlspecialchars($m['course_name']); ?></td><td><div class="table-actions"><button type="button" class="js-mentor-edit px-2 py-1 text-xs border rounded" data-item="<?= $rowJson; ?>">Edit</button><button type="button" class="js-mentor-delete px-2 py-1 text-xs bg-red-500 text-white rounded" data-id="<?= (int)$m['id']; ?>">Delete</button></div></td></tr>
+                <?php if (!$items): ?><tr><td colspan="4" class="text-center text-slate-500 py-10">Ma'lumot topilmadi</td></tr><?php endif; ?>
+                <?php 
+                $totalCount = $pagination['total'] ?? 0;
+                $offset = $pagination['offset'] ?? 0;
+                foreach ($items as $index => $m): 
+                    $rowNum = $totalCount - $offset - $index;
+                    $rowJson = htmlspecialchars(json_encode($m, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8'); 
+                ?>
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="px-4 py-3 text-slate-400 font-mono text-xs"><?= $rowNum; ?></td>
+                        <td class="px-4 py-3 font-medium text-slate-700"><?= htmlspecialchars($m['fio']); ?></td>
+                        <td class="px-4 py-3 text-slate-600"><?= htmlspecialchars($m['course_name']); ?></td>
+                        <td class="px-4 py-3 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button type="button" class="js-mentor-edit h-8 w-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors" data-item="<?= $rowJson; ?>">
+                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                </button>
+                                <button type="button" class="js-mentor-delete h-8 w-8 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" data-id="<?= (int)$m['id']; ?>">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>

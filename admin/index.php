@@ -8,8 +8,13 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/data_provider.php';
 
 $db = (new Database())->connect();
-ensure_system_schema($db);
-ensure_mentor_module_schema($db);
+
+if (isset($_GET['migrate'])) {
+    ensure_system_schema($db);
+    ensure_mentor_module_schema($db);
+    echo "Migration completed successfully.";
+    exit;
+}
 
 $decodeEntities = static function ($value) use (&$decodeEntities) {
     if (is_array($value)) {
@@ -39,6 +44,7 @@ $allowedPages = [
     'statistics',
     'teams',
     'projects',
+    'payments',
     'directions',
     'statuses',
 ];
@@ -204,10 +210,12 @@ $pageOptions = $decodeEntities($pageOptions);
     <?php include __DIR__ . '/partials/sidebar.php'; ?>
     <div id="mobileSidebarOverlay" class="fixed inset-0 bg-slate-900/40 z-30 hidden md:hidden"></div>
 
-    <div id="mainShell" class="flex-1 flex flex-col transition-all duration-200 md:pl-72">
+    <div id="mainShell" class="flex-1 flex flex-col transition-all duration-200 md:pl-72 min-w-0">
         <?php include __DIR__ . '/partials/header.php'; ?>
-        <main class="flex-1 overflow-auto bg-gray-50 p-4 md:p-6">
-            <?php include __DIR__ . '/pages/' . $currentPage . '.php'; ?>
+        <main class="flex-1 overflow-x-hidden bg-gray-50 p-3 md:p-6">
+            <div class="max-w-full overflow-x-auto">
+                <?php include __DIR__ . '/pages/' . $currentPage . '.php'; ?>
+            </div>
         </main>
         <?php include __DIR__ . '/partials/footer.php'; ?>
     </div>

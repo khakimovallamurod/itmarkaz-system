@@ -45,13 +45,18 @@ $competitionId = (int) ($_GET['id'] ?? 0);
             <?php else: ?>
                 <div class="table-shell">
                     <table class="admin-table">
-                        <thead><tr><th>Talaba</th><th>Mukofot</th><th>Pul miqdori</th><th>O'rin</th><th>Action</th></tr></thead>
+                        <thead><tr><th>#</th><th>Talaba</th><th>Mukofot</th><th>Pul miqdori</th><th>O'rin</th><th>Action</th></tr></thead>
                         <tbody>
-                        <?php foreach($results as $item): ?>
+                        <?php 
+                        $totalCount = count($results);
+                        foreach($results as $index => $item): 
+                            $rowNum = $totalCount - $index;
+                        ?>
                             <tr>
+                                <td class="p-2 text-slate-400 font-mono text-xs"><?= $rowNum; ?></td>
                                 <td><?= htmlspecialchars($item['fio']); ?></td>
                                 <td><?= htmlspecialchars($item['award_name'] ?? '-'); ?></td>
-                                <td><?= $item['cash_amount'] !== null ? htmlspecialchars((string) $item['cash_amount']) : '-'; ?></td>
+                                <td class="font-medium"><?= $item['cash_amount'] !== null ? number_format((float)$item['cash_amount'], 0, '.', ' ') . ' so\'m' : '-'; ?></td>
                                 <td><?= $item['position'] !== null ? (int) $item['position'] : '-'; ?></td>
                                 <td><button type="button" class="js-result-delete px-2 py-1 text-xs bg-red-500 text-white rounded" data-id="<?= (int) $item['id']; ?>">O'chirish</button></td>
                             </tr>
@@ -101,7 +106,7 @@ $competitionId = (int) ($_GET['id'] ?? 0);
             </label>
             <label class="form-field">
                 <span class="form-label">Pul miqdori (ixtiyoriy)</span>
-                <input type="number" name="cash_amount" id="competitionResultCashInput" class="form-input" min="0" step="0.01" placeholder="Masalan: 500000">
+                <input type="text" name="cash_amount" data-number-format id="competitionResultCashInput" class="form-input" placeholder="Masalan: 500 000">
             </label>
             <label class="form-field">
                 <span class="form-label">O'rin (ixtiyoriy, 1-5)</span>
