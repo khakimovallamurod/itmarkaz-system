@@ -19,79 +19,166 @@
     </div>
 
     <!-- Main Stats Cards -->
-    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
+    <section class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <!-- 1. Jami talabalar -->
+        <a href="index.php?page=students" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-blue-200 transition-all">
             <div class="flex items-center justify-between relative z-10">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Jami talabalar</p>
-                    <h3 class="text-3xl font-bold text-slate-800 mt-1"><?= number_format($stats['students'] ?? 0); ?></h3>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Jami talabalar</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['students'] ?? 0); ?></h3>
                 </div>
-                <div class="h-12 w-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <i class="fa-solid fa-users text-xl"></i>
+                <div class="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-users text-lg"></i>
                 </div>
             </div>
-            <div class="mt-4 flex items-center gap-2 relative z-10">
-                <span class="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Aktiv</span>
-                <span class="text-xs text-slate-400">Hozirgi vaqtda</span>
+            <div class="absolute -right-2 -bottom-2 text-blue-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-users text-6xl"></i>
             </div>
-            <div class="absolute -right-4 -bottom-4 text-blue-50/50 group-hover:scale-110 transition-transform duration-500">
-                <i class="fa-solid fa-users text-8xl"></i>
-            </div>
-        </div>
+        </a>
 
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
+        <!-- 2. Rezidentlar -->
+        <a href="index.php?page=residents" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-indigo-200 transition-all">
             <div class="flex items-center justify-between relative z-10">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Umumiy tushum</p>
-                    <h3 class="text-3xl font-bold text-slate-800 mt-1"><?= number_format($stats['total_payments'] ?? 0, 0, '.', ' '); ?></h3>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rezidentlar</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['residents'] ?? 0); ?></h3>
                 </div>
-                <div class="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <i class="fa-solid fa-sack-dollar text-xl"></i>
+                <div class="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-building-user text-lg"></i>
                 </div>
             </div>
-            <div class="mt-4 flex items-center gap-2 relative z-10">
-                <span class="text-xs text-slate-500">UZS</span>
+            <div class="absolute -right-2 -bottom-2 text-indigo-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-building-user text-6xl"></i>
             </div>
-            <div class="absolute -right-4 -bottom-4 text-emerald-50/50 group-hover:scale-110 transition-transform duration-500">
-                <i class="fa-solid fa-sack-dollar text-8xl"></i>
-            </div>
-        </div>
+        </a>
 
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
+        <!-- 3. Mentorlar -->
+        <a href="index.php?page=mentors" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-orange-200 transition-all">
             <div class="flex items-center justify-between relative z-10">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Rezidentlar</p>
-                    <h3 class="text-3xl font-bold text-slate-800 mt-1"><?= number_format($stats['residents'] ?? 0); ?></h3>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mentorlar</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['mentors'] ?? 0); ?></h3>
                 </div>
-                <div class="h-12 w-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <i class="fa-solid fa-building-user text-xl"></i>
+                <div class="h-10 w-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-chalkboard-user text-lg"></i>
                 </div>
             </div>
-            <div class="mt-4 flex items-center gap-2 relative z-10">
-                <span class="text-xs text-slate-500">Doimiy</span>
+            <div class="absolute -right-2 -bottom-2 text-orange-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-chalkboard-user text-6xl"></i>
             </div>
-            <div class="absolute -right-4 -bottom-4 text-indigo-50/50 group-hover:scale-110 transition-transform duration-500">
-                <i class="fa-solid fa-building-user text-8xl"></i>
-            </div>
-        </div>
+        </a>
 
-        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
+        <!-- 4. Kurs o'quvchilari -->
+        <a href="index.php?page=course_students" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-emerald-200 transition-all">
             <div class="flex items-center justify-between relative z-10">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Mentorlar</p>
-                    <h3 class="text-3xl font-bold text-slate-800 mt-1"><?= number_format($stats['mentors'] ?? 0); ?></h3>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kurs o'quvchilari</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['course_students'] ?? 0); ?></h3>
                 </div>
-                <div class="h-12 w-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center">
-                    <i class="fa-solid fa-chalkboard-user text-xl"></i>
+                <div class="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-graduation-cap text-lg"></i>
                 </div>
             </div>
-            <div class="mt-4 flex items-center gap-2 relative z-10">
-                <span class="text-xs text-slate-500">Mutaxassislar</span>
+            <div class="absolute -right-2 -bottom-2 text-emerald-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-graduation-cap text-6xl"></i>
             </div>
-            <div class="absolute -right-4 -bottom-4 text-orange-50/50 group-hover:scale-110 transition-transform duration-500">
-                <i class="fa-solid fa-chalkboard-user text-8xl"></i>
+        </a>
+
+        <!-- 5. Jami kurslar -->
+        <a href="index.php?page=courses" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-purple-200 transition-all">
+            <div class="flex items-center justify-between relative z-10">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Jami kurslar</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['courses_count'] ?? 0); ?></h3>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-book-open text-lg"></i>
+                </div>
             </div>
-        </div>
+            <div class="absolute -right-2 -bottom-2 text-purple-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-book-open text-6xl"></i>
+            </div>
+        </a>
+
+        <!-- 6. Bitiruvchilar soni -->
+        <a href="index.php?page=course_students&status=completed" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-teal-200 transition-all">
+            <div class="flex items-center justify-between relative z-10">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kurs bitiruvchilari</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['graduates_count'] ?? 0); ?></h3>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-user-graduate text-lg"></i>
+                </div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 text-teal-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-user-graduate text-6xl"></i>
+            </div>
+        </a>
+
+        <!-- 7. Tanlovlar soni -->
+        <a href="index.php?page=competitions" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-yellow-200 transition-all">
+            <div class="flex items-center justify-between relative z-10">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tanlovlar soni</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['competitions'] ?? 0); ?></h3>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-yellow-50 text-yellow-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-trophy text-lg"></i>
+                </div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 text-yellow-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-trophy text-6xl"></i>
+            </div>
+        </a>
+
+        <!-- 8. O'zini band qilganlar (Upwork) -->
+        <a href="index.php?page=teams" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-cyan-200 transition-all">
+            <div class="flex items-center justify-between relative z-10">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">O'zini band qilganlar</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['upwork_students_count'] ?? 0); ?></h3>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-briefcase text-lg"></i>
+                </div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 text-cyan-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-briefcase text-6xl"></i>
+            </div>
+        </a>
+
+        <!-- 9. Loyihalar ustida ishlayotganlar -->
+        <a href="index.php?page=projects" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-rose-200 transition-all">
+            <div class="flex items-center justify-between relative z-10">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Loyiha a'zolari</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['project_students_count'] ?? 0); ?></h3>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-laptop-code text-lg"></i>
+                </div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 text-rose-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-laptop-code text-6xl"></i>
+            </div>
+        </a>
+
+        <!-- 10. Tijorat shartnomalari -->
+        <a href="index.php?page=payments" class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group hover:border-emerald-200 transition-all">
+            <div class="flex items-center justify-between relative z-10">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tijorat shartnomalari</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1"><?= number_format($stats['commercial_contracts_count'] ?? 0); ?></h3>
+                </div>
+                <div class="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-file-signature text-lg"></i>
+                </div>
+            </div>
+            <div class="absolute -right-2 -bottom-2 text-emerald-50/30 group-hover:scale-110 transition-transform duration-500">
+                <i class="fa-solid fa-file-signature text-6xl"></i>
+            </div>
+        </a>
     </section>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

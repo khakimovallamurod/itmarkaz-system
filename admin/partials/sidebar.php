@@ -12,7 +12,7 @@ $menus = [
     'schedule' => ['label' => 'Ish jadvali', 'icon' => 'fa-calendar-days', 'link' => 'index.php?page=schedule'],
     'teams' => ['label' => 'Upwork Jamoa', 'icon' => 'fa-people-group', 'link' => 'index.php?page=teams'],
     'projects' => ['label' => 'Loyihalar', 'icon' => 'fa-diagram-project', 'link' => 'index.php?page=projects'],
-    'payments' => ['label' => 'Tijoratlar', 'icon' => 'fa-hand-holding-dollar', 'link' => 'index.php?page=payments'],
+    'payments' => ['label' => 'Tijorat shartnomalar', 'icon' => 'fa-hand-holding-dollar', 'link' => 'index.php?page=payments'],
     'statistics' => ['label' => 'Statistika', 'icon' => 'fa-chart-simple', 'link' => 'index.php?page=statistics'],
 ];
 $settingsChildren = [

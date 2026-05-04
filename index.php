@@ -21,6 +21,8 @@ if (isset($_SESSION['admin_id'])) {
     <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vanilla-tilt/1.8.0/vanilla-tilt.min.js"></script>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
     <style>
         :root {
             --primary: #059669;
@@ -31,8 +33,15 @@ if (isset($_SESSION['admin_id'])) {
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
             background-color: var(--bg-light);
-            overflow: hidden;
+            min-height: 100vh;
+            overflow-x: hidden;
+            overflow-y: auto;
             cursor: none;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
         }
 
         /* Custom Cursor */
@@ -135,18 +144,22 @@ if (isset($_SESSION['admin_id'])) {
     <div id="cursor-outline"></div>
     <div id="particles-js"></div>
 
-    <main class="relative z-10 w-full max-w-[480px] p-6">
-        <div class="glass-card rounded-[48px] p-12 reveal" data-tilt data-tilt-max="7" data-tilt-speed="800" data-tilt-perspective="1000">
-            <!-- Unified Content in One Card -->
-            <div class="flex flex-col items-center mb-10">
-                <div class="logo-float mb-6">
-                    <img src="assets/images/logo.png" alt="Logo" class="w-48 h-48 object-contain"
-                         onerror="this.classList.add('hidden'); document.getElementById('fallback').classList.remove('hidden');">
-                    <div id="fallback" class="hidden text-7xl font-black text-emerald-600 tracking-tighter">IT</div>
+    <main class="relative z-10 w-full max-w-[520px] p-4 sm:p-6 flex items-center justify-center">
+        <div class="glass-card w-full rounded-[48px] p-8 sm:p-12 reveal shadow-2xl transition-all duration-500 hover:shadow-emerald-500/10" 
+             data-tilt data-tilt-max="5" data-tilt-speed="400" data-tilt-perspective="1200">
+            
+            <!-- Logo Section -->
+            <div class="flex flex-col items-center justify-center text-center">
+                <div class="logo-3d-wrapper relative w-full aspect-square max-w-[300px] mb-2 overflow-visible flex items-center justify-center" 
+                     style="transform: translateZ(80px); transition: all 0.5s ease-out;">
+                    <div id="logo-3d-container" class="w-full h-full opacity-0 animate-[fadeIn_1.5s_ease-out_forwards]" 
+                         style="min-height: 200px; filter: drop-shadow(0 20px 30px rgba(16, 185, 129, 0.15));"></div>
                 </div>
                 
-                <h1 class="text-3xl font-black text-slate-800 tracking-tight" style="transform: translateZ(30px);">Xush Kelibsiz</h1>
-                <p class="text-slate-500 font-medium mt-2" style="transform: translateZ(20px);">Tizimga kirish uchun ma'lumotlarni kiriting</p>
+                <div class="mt-4 mb-8" style="transform: translateZ(40px);">
+                    <h1 class="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight mb-2 leading-none">Xush Kelibsiz</h1>
+                    <p class="text-slate-500 font-medium text-sm sm:text-base opacity-80">Tizimga kirish uchun ma'lumotlarni kiriting</p>
+                </div>
             </div>
 
             <form id="loginForm" class="space-y-6">
@@ -202,6 +215,152 @@ if (isset($_SESSION['admin_id'])) {
                 "move": { "enable": true, "speed": 0.8 }
             }
         });
+
+        // 3D Logo Animation
+        (() => {
+            const container = document.getElementById('logo-3d-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            
+            // Accurate sizing
+            const updateSize = () => {
+                const w = container.offsetWidth || 300;
+                const h = container.offsetHeight || 300;
+                renderer.setSize(w, h);
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+            };
+
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+            updateSize();
+
+            camera.position.z = 12;
+
+            // Lighting
+            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+            const p1 = new THREE.PointLight(0x10b981, 1);
+            p1.position.set(4, 4, 4);
+            scene.add(p1);
+            const p2 = new THREE.PointLight(0x224499, 1);
+            p2.position.set(-4, -4, 4);
+            scene.add(p2);
+
+            // Materials
+            const greenMat = new THREE.MeshStandardMaterial({ 
+                color: 0x56c29a, 
+                metalness: 0.2, 
+                roughness: 0.3,
+                emissive: 0x56c29a,
+                emissiveIntensity: 0.1
+            });
+            const blueMat = new THREE.MeshStandardMaterial({ 
+                color: 0x224499, 
+                metalness: 0.5, 
+                roughness: 0.2
+            });
+
+            const logoGroup = new THREE.Group();
+            scene.add(logoGroup);
+
+            // 1. Green Sphere (Head)
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.55, 32, 32), greenMat);
+            head.position.y = 1.8;
+            logoGroup.add(head);
+
+            // 2. Green Wing (Left)
+            const wingShape = new THREE.Shape();
+            wingShape.moveTo(0, 0);
+            wingShape.lineTo(-1.0, 0);
+            wingShape.quadraticCurveTo(-1.0, -0.6, 0, -0.6);
+            const wing = new THREE.Mesh(
+                new THREE.ExtrudeGeometry(wingShape, { depth: 0.15, bevelEnabled: true, bevelSize: 0.02 }),
+                greenMat
+            );
+            wing.position.set(-0.48, 0.55, 0.05); // Precisely at the boundary, slightly forward to avoid merging
+            logoGroup.add(wing);
+
+        // 3. Blue stylized Body (Thinner and smaller)
+            const bodyShape = new THREE.Shape();
+            bodyShape.moveTo(-0.25, -1.3);
+            bodyShape.lineTo(-0.25, 0.5);
+            bodyShape.quadraticCurveTo(-0.25, 0.65, -0.1, 0.65);
+            bodyShape.lineTo(0.3, 0.65);
+            bodyShape.quadraticCurveTo(1.1, 0.65, 1.1, -0.1);
+            bodyShape.lineTo(1.1, -0.3);
+            bodyShape.lineTo(0.25, -0.3);
+            bodyShape.lineTo(0.25, -0.05);
+            bodyShape.quadraticCurveTo(0.25, 0.15, 0.1, 0.15);
+            bodyShape.lineTo(0.1, -1.3);
+            bodyShape.quadraticCurveTo(0.1, -1.8, 1.0, -1.8);
+            bodyShape.lineTo(1.0, -1.95);
+            bodyShape.quadraticCurveTo(-0.25, -1.95, -0.25, -1.3);
+
+            const body = new THREE.Mesh(
+                new THREE.ExtrudeGeometry(bodyShape, { depth: 0.15, bevelEnabled: true, bevelSize: 0.03 }),
+                blueMat
+            );
+            body.position.set(-0.15, -0.1, 0);
+            logoGroup.add(body);
+
+        // 4. Green "IT" text (Even smaller and better positioned)
+            const itGroup = new THREE.Group();
+            const iStem = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.45, 0.08), greenMat);
+            iStem.position.x = 0.45;
+            itGroup.add(iStem);
+
+            const tTop = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.08), greenMat);
+            tTop.position.set(0.85, 0.18, 0);
+            itGroup.add(tTop);
+            
+            const tStem = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.38, 0.08), greenMat);
+            tStem.position.set(0.85, -0.05, 0);
+            itGroup.add(tStem);
+            
+            itGroup.position.set(0.12, -0.75, 0);
+            logoGroup.add(itGroup);
+
+            // Entry Animation State
+            head.position.y = 8;
+            wing.position.x = -8;
+            body.position.x = 8;
+            body.rotation.y = Math.PI;
+            itGroup.position.x = 8;
+            itGroup.visible = false;
+
+            let start = null;
+            const duration = 2500;
+
+            function animate(now) {
+                if (!start) start = now;
+                const elapsed = now - start;
+                const p = Math.min(elapsed / duration, 1);
+                const ease = 1 - Math.pow(1 - p, 4);
+
+                head.position.y = 8 - (8 - 1.8) * ease;
+                wing.position.x = -8 + (8 - (-0.42)) * ease;
+                body.position.x = 8 - (8 - (-0.15)) * ease;
+                body.rotation.y = Math.PI * (1 - ease);
+                
+                if (p > 0.5) {
+                    itGroup.visible = true;
+                    itGroup.position.x = 8 - (8 - 0.15) * ((p - 0.5) / 0.5);
+                }
+
+                if (p === 1) {
+                    logoGroup.position.y = Math.sin(now * 0.002) * 0.1;
+                    logoGroup.rotation.y = Math.sin(now * 0.001) * 0.1;
+                    logoGroup.rotation.x = Math.cos(now * 0.001) * 0.05;
+                }
+
+                renderer.render(scene, camera);
+                requestAnimationFrame(animate);
+            }
+            requestAnimationFrame(animate);
+
+            window.addEventListener('resize', updateSize);
+        })();
 
         // Login Logic
         const form = document.getElementById('loginForm');
