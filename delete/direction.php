@@ -11,4 +11,7 @@ $stmt->bind_param('i', $id);
 if (!$stmt->execute()) {
     json_response(false, 'Yo\'nalishni o\'chirishda xatolik.');
 }
+
 json_response(true, 'Yo\'nalish o\'chirildi.');
+
+cache_set('opt_directions', null);

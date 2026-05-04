@@ -186,20 +186,12 @@ function load_page_options(mysqli $db, string $page): array
     $needsAllProjects = in_array($page, ['payments'], true);
 
     if ($needsDirections) {
-        $options['directions'] = $forceClear ? null : cache_get('opt_directions');
-        if ($options['directions'] === null) {
-            $res = $db->query('SELECT id, name FROM directions ORDER BY name ASC');
-            $options['directions'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-            cache_set('opt_directions', $options['directions'], 3600);
-        }
+        $res = $db->query('SELECT id, name FROM directions ORDER BY name ASC');
+        $options['directions'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
     }
     if ($needsStatuses) {
-        $options['statuses'] = cache_get('opt_statuses');
-        if ($options['statuses'] === null) {
-            $res = $db->query('SELECT id, name FROM statuses ORDER BY name ASC');
-            $options['statuses'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
-            cache_set('opt_statuses', $options['statuses'], 3600);
-        }
+        $res = $db->query('SELECT id, name FROM statuses ORDER BY name ASC');
+        $options['statuses'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
     }
     if ($needsRooms) {
         $options['rooms'] = cache_get('opt_rooms');
