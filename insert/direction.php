@@ -11,5 +11,7 @@ $stmt->bind_param('s', $name);
 if (!$stmt->execute()) {
     json_response(false, 'Yo\'nalish qo\'shishda xatolik yoki dublikat mavjud.');
 }
+cache_set('opt_directions', null);
 
 json_response(true, 'Yo\'nalish qo\'shildi.');
+

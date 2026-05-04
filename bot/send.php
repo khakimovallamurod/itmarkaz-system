@@ -31,7 +31,12 @@ function load_bot_env(string $path): array
             continue;
         }
         [$key, $value] = explode('=', $line, 2);
-        $env[trim($key)] = trim($value);
+        $value = trim($value);
+        // Remove quotes if present
+        if (preg_match('/^["\'](.*)["\']$/', $value, $matches)) {
+            $value = $matches[1];
+        }
+        $env[trim($key)] = $value;
     }
 
     return $env;
