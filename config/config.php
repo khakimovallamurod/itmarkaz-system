@@ -31,7 +31,11 @@ class Database
 function cache_set(string $key, $value, int $ttl = 3600): void
 {
     $dir = __DIR__ . '/../cache';
-    if (!is_dir($dir)) @mkdir($dir, 0777, true);
+    if (!is_dir($dir)) {
+        if (!@mkdir($dir, 0777, true) && !is_dir($dir)) {
+            return;
+        }
+    }
     $data = ['expiry' => time() + $ttl, 'value' => $value];
     @file_put_contents($dir . '/' . md5($key) . '.cache', serialize($data));
 }
@@ -40,8 +44,12 @@ function cache_get(string $key)
 {
     $file = __DIR__ . '/../cache/' . md5($key) . '.cache';
     if (!file_exists($file)) return null;
-    $data = @unserialize(file_get_contents($file));
-    if (!$data || time() > $data['expiry']) {
+    
+    $content = @file_get_contents($file);
+    if ($content === false) return null;
+    
+    $data = @unserialize($content);
+    if (!$data || !isset($data['expiry']) || time() > $data['expiry']) {
         @unlink($file);
         return null;
     }

@@ -171,6 +171,7 @@ function fetch_stats_data(mysqli $db): array
 function load_page_options(mysqli $db, string $page): array
 {
     $options = [];
+    $forceClear = isset($_GET['clear_cache']);
 
     $needsDirections = in_array($page, ['students'], true);
     $needsStatuses = in_array($page, ['students'], true);
@@ -185,7 +186,7 @@ function load_page_options(mysqli $db, string $page): array
     $needsAllProjects = in_array($page, ['payments'], true);
 
     if ($needsDirections) {
-        $options['directions'] = cache_get('opt_directions');
+        $options['directions'] = $forceClear ? null : cache_get('opt_directions');
         if ($options['directions'] === null) {
             $res = $db->query('SELECT id, name FROM directions ORDER BY name ASC');
             $options['directions'] = $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
