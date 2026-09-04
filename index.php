@@ -227,13 +227,13 @@ if (isset($_SESSION['admin_id'])) {
     <div id="cursor-outline"></div>
     <div id="particles-js"></div>
 
-    <main class="relative z-10 w-full max-w-[520px] p-4 sm:p-6 flex items-center justify-center">
-        <div class="glass-card w-full rounded-[48px] p-8 sm:p-12 reveal shadow-2xl transition-all duration-500 hover:shadow-emerald-500/10" 
+    <main class="relative z-10 w-full max-w-md p-4 sm:p-6 flex items-center justify-center">
+        <div class="glass-card w-full rounded-[32px] p-6 sm:p-10 reveal shadow-2xl transition-all duration-500 hover:shadow-emerald-500/10" 
              data-tilt data-tilt-max="5" data-tilt-speed="400" data-tilt-perspective="1200">
             
             <!-- Logo Section -->
             <div class="flex flex-col items-center justify-center text-center">
-                <div class="logo-3d-wrapper relative w-full aspect-square max-w-[200px] mb-2 overflow-visible flex items-center justify-center" 
+                <div class="logo-3d-wrapper relative w-full aspect-square max-w-[160px] mb-2 overflow-visible flex items-center justify-center" 
                      style="transform: translateZ(80px); transition: all 0.5s ease-out;">
                     <div class="logo-container">
                         <div class="logo-part logo-part-1"></div>
@@ -242,35 +242,35 @@ if (isset($_SESSION['admin_id'])) {
                     </div>
                 </div>
                 
-                <div class="mt-4 mb-8" style="transform: translateZ(40px);">
-                    <h1 class="text-3xl sm:text-4xl font-black text-slate-800 tracking-tight mb-2 leading-none">Xush Kelibsiz</h1>
-                    <p class="text-slate-500 font-medium text-sm sm:text-base opacity-80">Tizimga kirish uchun ma'lumotlarni kiriting</p>
+                <div class="mt-4 mb-6" style="transform: translateZ(40px);">
+                    <h1 class="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-1.5 leading-none">Xush Kelibsiz</h1>
+                    <p class="text-slate-500 font-medium text-[13px] sm:text-sm opacity-80">Tizimga kirish uchun ma'lumotlarni kiriting</p>
                 </div>
             </div>
 
-            <form id="loginForm" class="space-y-6">
+            <form id="loginForm" class="space-y-5">
                 <div class="space-y-1.5" style="transform: translateZ(25px);">
-                    <label class="text-[11px] uppercase font-bold text-slate-400 ml-4 tracking-widest">Login</label>
+                    <label class="text-[11px] uppercase font-bold text-slate-400 ml-3 tracking-widest">Login</label>
                     <div class="relative group">
-                        <i class="fa-solid fa-user absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors"></i>
+                        <i class="fa-solid fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors text-sm"></i>
                         <input name="username" type="text" required
-                               class="input-field w-full pl-12 pr-4 py-4 rounded-2xl outline-none text-slate-700 font-semibold text-base" 
+                               class="input-field w-full pl-10 pr-4 py-3.5 rounded-xl outline-none text-slate-700 font-medium text-[15px]" 
                                placeholder="Admin login">
                     </div>
                 </div>
 
                 <div class="space-y-1.5" style="transform: translateZ(25px);">
-                    <label class="text-[11px] uppercase font-bold text-slate-400 ml-4 tracking-widest">Parol</label>
+                    <label class="text-[11px] uppercase font-bold text-slate-400 ml-3 tracking-widest">Parol</label>
                     <div class="relative group">
-                        <i class="fa-solid fa-lock absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors"></i>
+                        <i class="fa-solid fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors text-sm"></i>
                         <input name="password" type="password" required
-                               class="input-field w-full pl-12 pr-4 py-4 rounded-2xl outline-none text-slate-700 font-semibold text-base" 
+                               class="input-field w-full pl-10 pr-4 py-3.5 rounded-xl outline-none text-slate-700 font-medium text-[15px]" 
                                placeholder="••••••••">
                     </div>
                 </div>
 
-                <div class="pt-4">
-                    <button type="submit" class="btn-premium w-full py-4 rounded-2xl text-white font-bold text-lg flex items-center justify-center gap-3 transition-all active:scale-95 group">
+                <div class="pt-3">
+                    <button type="submit" class="btn-premium w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 group">
                         <span>Tizimga kirish</span>
                         <i class="fa-solid fa-arrow-right-long text-sm group-hover:translate-x-1.5 transition-transform"></i>
                     </button>
