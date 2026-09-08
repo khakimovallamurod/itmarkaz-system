@@ -37,7 +37,7 @@ $courseLabel = static function (int $entryYear) use ($currentYear): string {
         </div>
 
         <div class="flex items-center gap-2 w-full md:w-auto">
-            <select name="direction_id" class="flex-1 md:w-60 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-emerald-500 outline-none transition-all">
+            <select name="direction_id" onchange="this.form.submit()" class="flex-1 md:w-60 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-emerald-500 outline-none transition-all">
                 <option value="">Barcha yo'nalishlar</option>
                 <?php foreach ($directions as $direction): ?>
                     <option value="<?= (int) $direction['id']; ?>" <?= ((int) ($filters['direction_id'] ?? 0) === (int) $direction['id']) ? 'selected' : ''; ?>>
@@ -70,14 +70,15 @@ $courseLabel = static function (int $entryYear) use ($currentYear): string {
         <div class="table-shell">
             <table class="admin-table">
                 <colgroup>
-                    <col style="width: 5%;">
-                    <col style="width: 20%;">
-                    <col style="width: 15%;">
-                    <col style="width: 10%;">
-                    <col style="width: 10%;">
-                    <col style="width: 14%;">
-                    <col style="width: 14%;">
+                    <col style="width: 4%;">
+                    <col style="width: 17%;">
+                    <col style="width: 13%;">
+                    <col style="width: 7%;">
+                    <col style="width: 7%;">
                     <col style="width: 12%;">
+                    <col style="width: 12%;">
+                    <col style="width: 14%;">
+                    <col style="width: 14%;">
                 </colgroup>
                 <thead><tr>
                     <th>#</th>
@@ -87,11 +88,12 @@ $courseLabel = static function (int $entryYear) use ($currentYear): string {
                     <th data-sort="s.kirgan_yili">Kurs <?= sortIcon('s.kirgan_yili', $filters); ?></th>
                     <th>Telefon</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th data-sort="s.created_at">Ro'yxatdan o'tgan <?= sortIcon('s.created_at', $filters); ?></th>
+                    <th class="text-right pr-4">Amallar</th>
                 </tr></thead>
                 <tbody>
                 <?php if (!$items): ?>
-                    <tr><td colspan="8" class="text-center text-slate-500 py-10">Ma'lumot topilmadi</td></tr>
+                    <tr><td colspan="9" class="text-center text-slate-500 py-10">Ma'lumot topilmadi</td></tr>
                 <?php endif; ?>
                 <?php 
                 $totalCount = $pagination['total'] ?? 0;
@@ -114,12 +116,21 @@ $courseLabel = static function (int $entryYear) use ($currentYear): string {
                                 <?php endforeach; ?>
                             </div>
                         </td>
+                        <td class="px-4 py-3 text-slate-600 text-xs whitespace-nowrap">
+                            <span class="font-medium text-slate-700 block"><?= !empty($item['created_at']) ? date('d.m.Y', strtotime($item['created_at'])) : '-'; ?></span>
+                            <span class="text-[11px] text-slate-400"><?= !empty($item['created_at']) ? date('H:i', strtotime($item['created_at'])) : ''; ?></span>
+                        </td>
                         <td class="px-4 py-3 text-right">
-                            <div class="flex justify-end gap-2">
-                                <button type="button" class="js-student-edit h-8 w-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors" data-item="<?= $itemJson; ?>">
+                            <div class="flex justify-end gap-1.5">
+                                <a href="index.php?page=student_profile&id=<?= (int) $item['id']; ?>" 
+                                   class="h-8 w-8 rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 flex items-center justify-center transition-colors shadow-xs" 
+                                   title="Profilni ko'rish">
+                                    <i class="fa-solid fa-eye text-xs"></i>
+                                </a>
+                                <button type="button" class="js-student-edit h-8 w-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-colors" data-item="<?= $itemJson; ?>" title="Tahrirlash">
                                     <i class="fa-solid fa-pen-to-square text-xs"></i>
                                 </button>
-                                <button type="button" class="js-student-delete h-8 w-8 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" data-id="<?= (int) $item['id']; ?>">
+                                <button type="button" class="js-student-delete h-8 w-8 rounded-lg border border-red-100 text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors" data-id="<?= (int) $item['id']; ?>" title="O'chirish">
                                     <i class="fa-solid fa-trash-can text-xs"></i>
                                 </button>
                             </div>
@@ -131,12 +142,28 @@ $courseLabel = static function (int $entryYear) use ($currentYear): string {
         </div>
 
         <!-- Table Footer / Stats -->
-        <?php $stats = $pageData['stats'] ?? []; ?>
-        <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-wrap gap-6 text-sm">
+        <?php 
+        $stats = $pageData['stats'] ?? []; 
+        $isFiltered = !empty($filters['search']) || !empty($filters['direction_id']);
+        $foundCount = (int) ($pagination['total'] ?? 0);
+        ?>
+        <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-wrap items-center gap-6 text-sm">
             <div class="flex items-center gap-2">
                 <span class="text-slate-500">Jami talabalar:</span>
                 <span class="font-bold text-slate-800"><?= (int) ($stats['total'] ?? 0); ?></span>
             </div>
+            <?php if ($isFiltered): ?>
+                <div class="flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-800 rounded-xl border border-emerald-300 font-medium text-xs">
+                    <i class="fa-solid fa-magnifying-glass text-[11px]"></i>
+                    <span>Topilgan talabalar:</span>
+                    <span class="font-bold text-sm text-emerald-900"><?= $foundCount; ?> ta</span>
+                </div>
+            <?php else: ?>
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-500">Ko'rsatilmoqda:</span>
+                    <span class="font-bold text-emerald-600"><?= $foundCount; ?> ta</span>
+                </div>
+            <?php endif; ?>
             <div class="flex items-center gap-2">
                 <span class="text-slate-500">Kurs o'quvchilar:</span>
                 <span class="font-bold text-emerald-600"><?= (int) ($stats['course_students'] ?? 0); ?></span>

@@ -47,4 +47,6 @@ try {
     json_response(false, 'Talaba qo\'shishda xatolik yuz berdi.');
 }
 
+cache_set('dashboard_stats', null);
+log_admin_activity($db, 'student_add', 'students', "Yangi talaba qo'shildi: {$fio} (Guruh: {$guruh})", $studentId);
 json_response(true, 'Talaba qo\'shildi.');

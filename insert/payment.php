@@ -22,7 +22,8 @@ $stmt = $db->prepare("INSERT INTO payments (project_id, student_id, amount, paym
 $stmt->bind_param('iidi', $projectId, $studentId, $amount, $paymentTypeId);
 
 if ($stmt->execute()) {
-    // Clear dashboard stats cache because a new payment might affect it (though we don't show payments in main stats yet, better safe)
+    $paymentId = $db->insert_id;
+    log_admin_activity($db, 'payment_add', 'payments', "Yangi to'lov qabul qilindi: " . number_format($amount, 0, '', ' ') . " so'm (Talaba ID: #{$studentId})", $paymentId);
     @unlink(__DIR__ . '/../cache/' . md5('dashboard_stats') . '.cache');
     json_response(true, 'To\'lov muvaffaqiyatli saqlandi');
 } else {

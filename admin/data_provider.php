@@ -35,8 +35,11 @@ function get_sort_sql(array $input, array $allowedFields, string $defaultSort, s
 
 function fetch_stats_data(mysqli $db): array
 {
-    $cached = cache_get('dashboard_stats');
-    if ($cached) return $cached;
+    $forceClear = isset($_GET['clear_cache']) || isset($_GET['refresh_stats']);
+    if (!$forceClear) {
+        $cached = cache_get('dashboard_stats');
+        if ($cached) return $cached;
+    }
 
     $safe = static function (string $sql) use ($db) {
         try {
@@ -134,6 +137,55 @@ function fetch_stats_data(mysqli $db): array
     $dirDistRes = $safe("SELECT d.name, COUNT(s.id) as cnt FROM directions d LEFT JOIN students s ON s.yonalish_id = d.id GROUP BY d.id, d.name ORDER BY cnt DESC");
     $stats['direction_distribution'] = $dirDistRes ? $dirDistRes->fetch_all(MYSQLI_ASSOC) : [];
 
+    // Student registration timeline (Monthly & Daily live statistics)
+    $monthNames = [
+        1 => 'Yanvar', 2 => 'Fevral', 3 => 'Mart', 4 => 'Aprel',
+        5 => 'May', 6 => 'Iyun', 7 => 'Iyul', 8 => 'Avgust',
+        9 => 'Sentabr', 10 => 'Oktabr', 11 => 'Noyabr', 12 => 'Dekabr'
+    ];
+    $monthlyCounts = array_fill(1, 12, 0);
+    $monthlyRes = $safe("SELECT MONTH(created_at) as m, COUNT(*) as cnt FROM students WHERE YEAR(created_at) = YEAR(CURDATE()) GROUP BY MONTH(created_at)");
+    if ($monthlyRes) {
+        while ($r = $monthlyRes->fetch_assoc()) {
+            $m = (int) ($r['m'] ?? 0);
+            if ($m >= 1 && $m <= 12) {
+                $monthlyCounts[$m] = (int) ($r['cnt'] ?? 0);
+            }
+        }
+    }
+    $monthlyData = [
+        'labels' => array_values($monthNames),
+        'values' => array_values($monthlyCounts),
+    ];
+
+    // Daily for the current month
+    $daysInMonth = (int) date('t');
+    $dailyCounts = array_fill(1, $daysInMonth, 0);
+    $dailyLabels = [];
+    $curMonthName = $monthNames[(int) date('n')] ?? date('M');
+    for ($d = 1; $d <= $daysInMonth; $d++) {
+        $dailyLabels[] = str_pad((string) $d, 2, '0', STR_PAD_LEFT) . '-' . mb_substr($curMonthName, 0, 3);
+    }
+    $dailyRes = $safe("SELECT DAY(created_at) as d, COUNT(*) as cnt FROM students WHERE YEAR(created_at) = YEAR(CURDATE()) AND MONTH(created_at) = MONTH(CURDATE()) GROUP BY DAY(created_at)");
+    if ($dailyRes) {
+        while ($r = $dailyRes->fetch_assoc()) {
+            $d = (int) ($r['d'] ?? 0);
+            if ($d >= 1 && $d <= $daysInMonth) {
+                $dailyCounts[$d] = (int) ($r['cnt'] ?? 0);
+            }
+        }
+    }
+    $dailyData = [
+        'labels' => $dailyLabels,
+        'values' => array_values($dailyCounts),
+    ];
+
+    $stats['student_timeline'] = [
+        'monthly' => $monthlyData,
+        'daily' => $dailyData,
+        'today_str' => date('Y-m-d') . ' ' . date('l') . ' ' . date('d-F'),
+    ];
+
     $statsData = [
         'dashboard' => [
             'students' => $stats['students'],
@@ -150,7 +202,8 @@ function fetch_stats_data(mysqli $db): array
             'recent_activity' => $stats['recent_activity'],
             'upcoming_competitions' => $stats['upcoming_competitions'],
             'course_distribution' => $stats['course_distribution'],
-            'projects_by_status' => $stats['projects_by_status']
+            'projects_by_status' => $stats['projects_by_status'],
+            'student_timeline' => $stats['student_timeline']
         ],
         'statistics' => [
             'total_payments' => $stats['total_payments'],
@@ -160,7 +213,8 @@ function fetch_stats_data(mysqli $db): array
             'top_students' => $stats['top_students'],
             'rooms_occupancy' => $stats['rooms_occupancy'],
             'direction_distribution' => $stats['direction_distribution'],
-            'competitions_count' => $stats['competitions']
+            'competitions_count' => $stats['competitions'],
+            'student_timeline' => $stats['student_timeline']
         ]
     ];
 
@@ -278,6 +332,104 @@ function load_page_data(mysqli $db, string $page, array $input): array
         return ['stats' => $allStats[$page] ?? []];
     }
 
+    if ($page === 'settings') {
+        $adminId = (int) ($_SESSION['admin_id'] ?? 0);
+        $stmt = $db->prepare('SELECT id, username, first_name, last_name, phone, created_at FROM admins WHERE id = ? LIMIT 1');
+        $stmt->bind_param('i', $adminId);
+        $stmt->execute();
+        $admin = $stmt->get_result()->fetch_assoc() ?: [];
+        return ['admin' => $admin];
+    }
+
+    if ($page === 'student_profile') {
+        $studentId = qp_int($input, 'id', 0, 0);
+        if ($studentId <= 0) {
+            return ['student' => null];
+        }
+
+        // Student base info
+        $sStmt = $db->prepare('SELECT s.*, d.name as yonalish_name FROM students s LEFT JOIN directions d ON d.id = s.yonalish_id WHERE s.id = ? LIMIT 1');
+        $sStmt->bind_param('i', $studentId);
+        $sStmt->execute();
+        $student = $sStmt->get_result()->fetch_assoc();
+        if (!$student) {
+            return ['student' => null];
+        }
+
+        // Statuses
+        $stStmt = $db->prepare('SELECT st.id, st.name FROM student_status ss JOIN statuses st ON st.id = ss.status_id WHERE ss.student_id = ?');
+        $stStmt->bind_param('i', $studentId);
+        $stStmt->execute();
+        $statuses = $stStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Resident details
+        $rStmt = $db->prepare('SELECT r.*, rm.room_number, rm.capacity, rm.computers_count FROM residents r LEFT JOIN rooms rm ON rm.id = r.room_id WHERE r.student_id = ? LIMIT 1');
+        $rStmt->bind_param('i', $studentId);
+        $rStmt->execute();
+        $resident = $rStmt->get_result()->fetch_assoc();
+
+        // Enrolled courses
+        $cStmt = $db->prepare('SELECT cs.*, c.name as course_name, c.duration, c.time, c.days, rm.room_number FROM course_students cs JOIN courses c ON c.id = cs.course_id LEFT JOIN rooms rm ON rm.id = cs.room_id WHERE cs.student_id = ? ORDER BY cs.id DESC');
+        $cStmt->bind_param('i', $studentId);
+        $cStmt->execute();
+        $courses = $cStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Mentor courses
+        $mStmt = $db->prepare('SELECT m.*, c.name as course_name, c.duration, c.time FROM mentors m JOIN courses c ON c.id = m.course_id WHERE m.student_id = ?');
+        $mStmt->bind_param('i', $studentId);
+        $mStmt->execute();
+        $mentorCourses = $mStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Projects
+        $pStmt = $db->prepare('SELECT pm.*, p.project_name, p.status as project_status FROM project_members pm JOIN projects p ON p.id = pm.project_id WHERE pm.student_id = ? ORDER BY pm.id DESC');
+        $pStmt->bind_param('i', $studentId);
+        $pStmt->execute();
+        $projects = $pStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Teams (Upwork)
+        $tStmt = $db->prepare('SELECT tm.*, t.team_name, t.level as team_level FROM team_members tm JOIN teams t ON t.id = tm.team_id WHERE tm.student_id = ? ORDER BY tm.id DESC');
+        $tStmt->bind_param('i', $studentId);
+        $tStmt->execute();
+        $teams = $tStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Payments
+        $payStmt = $db->prepare('SELECT pay.*, p.project_name, pt.name as payment_type_name FROM payments pay LEFT JOIN projects p ON p.id = pay.project_id LEFT JOIN payment_types pt ON pt.id = pay.payment_type_id WHERE pay.student_id = ? ORDER BY pay.id DESC');
+        $payStmt->bind_param('i', $studentId);
+        $payStmt->execute();
+        $payments = $payStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        $totalPaid = 0;
+        foreach ($payments as $pay) {
+            $totalPaid += (float) ($pay['amount'] ?? 0);
+        }
+
+        // Competitions & results
+        $compStmt = $db->prepare('SELECT cp.*, c.name as competition_name, c.competition_date, c.location, cr.position, cr.cash_amount FROM competition_participants cp JOIN competitions c ON c.id = cp.competition_id LEFT JOIN competition_results cr ON cr.competition_id = c.id AND cr.student_id = cp.student_id WHERE cp.student_id = ? ORDER BY c.competition_date DESC');
+        $compStmt->bind_param('i', $studentId);
+        $compStmt->execute();
+        $competitions = $compStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        // Admin account linked
+        $admStmt = $db->prepare('SELECT id, username, role, status FROM admins WHERE student_id = ? LIMIT 1');
+        $admStmt->bind_param('i', $studentId);
+        $admStmt->execute();
+        $adminAccount = $admStmt->get_result()->fetch_assoc();
+
+        return [
+            'student' => $student,
+            'statuses' => $statuses,
+            'resident' => $resident,
+            'courses' => $courses,
+            'mentor_courses' => $mentorCourses,
+            'projects' => $projects,
+            'teams' => $teams,
+            'payments' => $payments,
+            'total_paid' => $totalPaid,
+            'competitions' => $competitions,
+            'admin_account' => $adminAccount,
+        ];
+    }
+
     if ($page === 'students') {
         $search = qp_str($input, 'search');
         $directionId = qp_int($input, 'direction_id', 0, 0);
@@ -301,11 +453,11 @@ function load_page_data(mysqli $db, string $page, array $input): array
         $totalResidents = (int) ($db->query("SELECT COUNT(DISTINCT student_id) FROM student_status WHERE status_id = (SELECT id FROM statuses WHERE name = 'Rezident' LIMIT 1)")->fetch_row()[0] ?? 0);
         $totalCourseStudents = (int) ($db->query("SELECT COUNT(DISTINCT student_id) FROM student_status WHERE status_id = (SELECT id FROM statuses WHERE name = 'Kurs o\'quvchi' LIMIT 1)")->fetch_row()[0] ?? 0);
 
-        $sortSql = get_sort_sql($input, ['s.id', 's.fio', 'd.name', 's.guruh', 's.kirgan_yili'], 's.id', 'DESC');
+        $sortSql = get_sort_sql($input, ['s.id', 's.fio', 'd.name', 's.guruh', 's.kirgan_yili', 's.created_at'], 's.id', 'DESC');
 
         $sql = "
           SELECT
-            s.id, s.fio, s.yonalish_id, d.name AS yonalish, s.guruh, s.kirgan_yili, s.telefon, s.telegram_chat_id,
+            s.id, s.fio, s.yonalish_id, d.name AS yonalish, s.guruh, s.kirgan_yili, s.telefon, s.telegram_chat_id, s.created_at,
             GROUP_CONCAT(DISTINCT st.id ORDER BY st.id SEPARATOR '||') AS status_ids_raw,
             GROUP_CONCAT(DISTINCT st.name ORDER BY st.name SEPARATOR '||') AS status_names
           FROM students s
@@ -314,7 +466,7 @@ function load_page_data(mysqli $db, string $page, array $input): array
           LEFT JOIN statuses st ON st.id=ss.status_id
           WHERE (s.fio LIKE ? OR d.name LIKE ? OR s.guruh LIKE ?)
           " . ($directionId > 0 ? ' AND s.yonalish_id=? ' : '') . "
-          GROUP BY s.id, s.fio, s.yonalish_id, d.name, s.guruh, s.kirgan_yili, s.telefon, s.telegram_chat_id
+          GROUP BY s.id, s.fio, s.yonalish_id, d.name, s.guruh, s.kirgan_yili, s.telefon, s.telegram_chat_id, s.created_at
           $sortSql
           LIMIT ? OFFSET ?
         ";
@@ -322,7 +474,7 @@ function load_page_data(mysqli $db, string $page, array $input): array
         if ($directionId > 0) {
             $stmt->bind_param('sssiii', $q, $q, $q, $directionId, $meta['per_page'], $meta['offset']);
         } else {
-            $stmt->bind_param('ssiii', $q, $q, $q, $meta['per_page'], $meta['offset']);
+            $stmt->bind_param('sssii', $q, $q, $q, $meta['per_page'], $meta['offset']);
         }
         $stmt->execute();
         $students = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);

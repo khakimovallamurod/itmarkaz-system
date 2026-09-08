@@ -13,7 +13,7 @@ if ($action === 'login') {
         json_response(false, 'Login yoki parol bo\'sh bo\'lmasligi kerak.');
     }
 
-    $stmt = $db->prepare('SELECT id, username, password_hash FROM admins WHERE username = ? LIMIT 1');
+    $stmt = $db->prepare('SELECT id, username, first_name, last_name, role, status, password_hash FROM admins WHERE username = ? LIMIT 1');
     $stmt->bind_param('s', $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -21,6 +21,10 @@ if ($action === 'login') {
 
     if (!$admin) {
         json_response(false, 'Login yoki parol noto\'g\'ri.');
+    }
+
+    if (($admin['status'] ?? 'active') === 'blocked') {
+        json_response(false, 'Ushbu hisob bloklangan. Tizimga kirish uchun Super administratorga murojaat qiling.');
     }
 
     $passwordHash = $admin['password_hash'] ?? '';
@@ -31,10 +35,18 @@ if ($action === 'login') {
         json_response(false, 'Login yoki parol noto\'g\'ri.');
     }
 
+    $adminRole = $admin['role'] ?? 'admin';
     $_SESSION['admin_id'] = (int) $admin['id'];
     $_SESSION['admin_username'] = $admin['username'];
+    $_SESSION['admin_role'] = $adminRole;
+    $_SESSION['admin_first_name'] = $admin['first_name'] ?? '';
+    $_SESSION['admin_last_name'] = $admin['last_name'] ?? '';
 
-    json_response(true, 'Muvaffaqiyatli kirildi.', ['redirect' => 'admin/index.php']);
+    $redirectUrl = ($adminRole === 'superadmin') ? 'superadmin/index.php' : 'admin/index.php';
+
+    log_admin_activity($db, 'login', 'auth', "Tizimga kirdi (@{$admin['username']})", (int) $admin['id'], (int) $admin['id']);
+
+    json_response(true, 'Muvaffaqiyatli kirildi.', ['redirect' => $redirectUrl]);
 }
 
 if ($action === 'logout') {

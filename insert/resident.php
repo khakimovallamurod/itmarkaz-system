@@ -16,4 +16,9 @@ $stmt = $db->prepare('
 ');
 $stmt->bind_param('iis', $studentId, $roomId, $computerNumber);
 $stmt->execute();
+
+$resStu = $db->query("SELECT fio FROM students WHERE id = $studentId");
+$stuFio = ($row = $resStu->fetch_assoc()) ? $row['fio'] : "Talaba #$studentId";
+log_admin_activity($db, 'resident_add', 'residents', "Rezident biriktirildi: {$stuFio}", $studentId);
+
 json_response(true, 'Rezident ma\'lumotlari saqlandi.');

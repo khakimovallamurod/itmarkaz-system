@@ -15,6 +15,7 @@ $stmt = $db->prepare("UPDATE payments SET project_id = ?, student_id = ?, amount
 $stmt->bind_param('iidii', $projectId, $studentId, $amount, $paymentTypeId, $id);
 
 if ($stmt->execute()) {
+    log_admin_activity($db, 'payment_update', 'payments', "To'lov ma'lumotlari yangilandi: " . number_format($amount, 0, '', ' ') . " so'm (ID: #{$id})", $id);
     json_response(true, 'To\'lov muvaffaqiyatli yangilandi.');
 } else {
     json_response(false, 'Xatolik yuz berdi: ' . $db->error);

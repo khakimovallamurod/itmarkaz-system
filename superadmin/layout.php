@@ -2,7 +2,9 @@
 $currentPage = $currentPage ?? 'dashboard';
 
 $pageMeta = [
-    'dashboard' => ['title' => 'Dashboard', 'subtitle' => 'Tizim ko\'rsatkichlari va so\'nggi faolliklar'],
+    'dashboard' => ['title' => 'Super Admin Dashboard', 'subtitle' => 'Boshqaruv paneli va asosiy ko\'rsatkichlar'],
+    'admins' => ['title' => 'Adminlar Boshqaruvi', 'subtitle' => 'Administratorlarni yaratish, rezidentlarni biriktirish va nazorat qilish'],
+    'notifications' => ['title' => 'Boshqaruv paneli', 'subtitle' => 'Adminlar faoliyati va barcha harakatlar monitoringi'],
     'residents' => ['title' => 'Rezidentlar', 'subtitle' => 'Faol rezidentlar ro\'yxati'],
     'students' => ['title' => 'Talabalar', 'subtitle' => 'Talabalar bazasi va statuslari'],
     'course_students' => ['title' => 'Kurs o\'quvchilar', 'subtitle' => 'Kurs bo\'yicha o\'quvchilar monitoringi'],
@@ -18,7 +20,7 @@ $pageMeta = [
     'payments' => ['title' => 'Tijoratlar', 'subtitle' => 'Loyihalar bo\'yicha to\'lovlarni boshqarish va hisobotlar'],
     'directions' => ['title' => 'Sozlamalar', 'subtitle' => 'Yo\'nalishlarni boshqarish'],
     'statuses' => ['title' => 'Sozlamalar', 'subtitle' => 'Statuslarni boshqarish'],
-    'settings' => ['title' => 'Sozlamalar', 'subtitle' => 'Admin profili va sozlamalar'],
+    'settings' => ['title' => 'Sozlamalar', 'subtitle' => 'Super Admin profili'],
     'student_profile' => ['title' => 'Talaba Profili', 'subtitle' => 'Talaba haqida to\'liq ma\'lumotlar, status, kurslar va natijalar'],
 ];
 

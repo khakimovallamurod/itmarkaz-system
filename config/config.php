@@ -514,8 +514,78 @@ function ensure_system_schema(mysqli $db): void
     ");
 
     $db->query("INSERT INTO statuses (name) VALUES ('Rezident'), ('Kurs o''quvchi'), ('Talaba') ON DUPLICATE KEY UPDATE name = VALUES(name)");
+
+    // Admins table extensions
+    if (!$columnExists('admins', 'first_name')) {
+        $db->query("ALTER TABLE admins ADD COLUMN first_name VARCHAR(100) DEFAULT NULL AFTER username");
+    }
+    if (!$columnExists('admins', 'last_name')) {
+        $db->query("ALTER TABLE admins ADD COLUMN last_name VARCHAR(100) DEFAULT NULL AFTER first_name");
+    }
+    if (!$columnExists('admins', 'phone')) {
+        $db->query("ALTER TABLE admins ADD COLUMN phone VARCHAR(30) DEFAULT NULL AFTER last_name");
+    }
+    if (!$columnExists('admins', 'role')) {
+        $db->query("ALTER TABLE admins ADD COLUMN role ENUM('admin', 'superadmin') NOT NULL DEFAULT 'admin' AFTER phone");
+    }
+    if (!$columnExists('admins', 'status')) {
+        $db->query("ALTER TABLE admins ADD COLUMN status ENUM('active', 'blocked') NOT NULL DEFAULT 'active' AFTER role");
+    }
+    if (!$columnExists('admins', 'student_id')) {
+        $db->query("ALTER TABLE admins ADD COLUMN student_id INT UNSIGNED DEFAULT NULL AFTER status");
+    }
+
+    // Default superadmin account
+    $db->query("
+        INSERT INTO admins (username, first_name, last_name, role, status, password_hash)
+        VALUES ('superadmin', 'Super', 'Admin', 'superadmin', 'active', '0192023a7bbd73250516f069df18b500')
+        ON DUPLICATE KEY UPDATE role = 'superadmin', status = 'active'
+    ");
+
+    // Admin Activity Logs & Notifications table
+    $db->query("
+        CREATE TABLE IF NOT EXISTS admin_activity_logs (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            admin_id INT UNSIGNED NOT NULL,
+            action_type VARCHAR(50) NOT NULL,
+            module VARCHAR(50) NOT NULL,
+            description TEXT NOT NULL,
+            target_id INT UNSIGNED NULL,
+            is_read TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_logs_admin (admin_id),
+            INDEX idx_logs_module (module),
+            INDEX idx_logs_created (created_at),
+            INDEX idx_logs_read (is_read)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
     } finally {
         mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    }
+}
+
+function log_admin_activity(mysqli $db, string $actionType, string $module, string $description, ?int $targetId = null, ?int $adminId = null): void
+{
+    try {
+        $aId = $adminId ?? (int) ($_SESSION['admin_id'] ?? 0);
+        if ($aId < 1) {
+            $aId = 1; // Fallback to system admin
+        }
+        $stmt = $db->prepare("INSERT INTO admin_activity_logs (admin_id, action_type, module, description, target_id) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param('isssi', $aId, $actionType, $module, $description, $targetId);
+        $stmt->execute();
+    } catch (Throwable $e) {
+        // Silently pass to not break primary operations
+    }
+}
+
+function get_unread_notifications_count(mysqli $db): int
+{
+    try {
+        $res = $db->query("SELECT COUNT(*) cnt FROM admin_activity_logs WHERE is_read = 0");
+        return (int) (($res ? $res->fetch_assoc()['cnt'] : 0) ?? 0);
+    } catch (Throwable $e) {
+        return 0;
     }
 }
 

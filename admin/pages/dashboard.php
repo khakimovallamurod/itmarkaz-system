@@ -181,65 +181,38 @@
         </a>
     </section>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Main Chart Area -->
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col">
-            <div class="flex items-center justify-between mb-6">
+    <!-- Main Chart Area (Full Width) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+            <div>
                 <h3 class="font-bold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-line text-emerald-500"></i>
-                    Natijalar statistikasi
+                    <i class="fa-solid fa-chart-line text-blue-600"></i>
+                    Talabalar statistikasi (Jonli)
                 </h3>
-                <div class="flex gap-1 bg-slate-100 p-1 rounded-lg">
-                    <button class="px-3 py-1 text-xs font-medium rounded-md bg-white shadow-sm">Natijalar</button>
-                </div>
+                <p class="text-xs text-slate-400 mt-0.5">Tizimga qo'shilgan talabalar o'sish dinamikasi</p>
             </div>
-            <div class="flex-1 min-h-[300px] relative">
-                <canvas id="dashboardChart"></canvas>
+            <div class="flex items-center gap-2 self-start sm:self-auto">
+                <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                    <button id="chartModeMonthly" type="button" class="px-3.5 py-1.5 rounded-lg bg-white text-blue-600 shadow-sm transition-all">Oylik</button>
+                    <button id="chartModeDaily" type="button" class="px-3.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all font-normal">Kunlik</button>
+                </div>
             </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h3 class="font-bold text-slate-800 mb-6 flex items-center gap-2">
-                <i class="fa-solid fa-bolt text-orange-400"></i>
-                Oxirgi faolliklar
-            </h3>
-            <div class="space-y-6 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-100">
-                <?php foreach(($stats['recent_activity'] ?? []) as $act): 
-                    $iconClass = 'bg-slate-100 text-slate-600';
-                    $icon = 'fa-circle-dot';
-                    switch($act['activity_type'] ?? '') {
-                        case 'student': $iconClass = 'bg-blue-100 text-blue-600'; $icon = 'fa-user-plus'; break;
-                        case 'payment': $iconClass = 'bg-emerald-100 text-emerald-600'; $icon = 'fa-money-check-dollar'; break;
-                        case 'competition': $iconClass = 'bg-orange-100 text-orange-600'; $icon = 'fa-trophy'; break;
-                        case 'result': $iconClass = 'bg-indigo-100 text-indigo-600'; $icon = 'fa-award'; break;
-                        case 'project': $iconClass = 'bg-purple-100 text-purple-600'; $icon = 'fa-laptop-code'; break;
-                    }
-                ?>
-                    <div class="flex gap-4 relative">
-                        <div class="h-9 w-9 shrink-0 rounded-full flex items-center justify-center z-10 border-4 border-white <?= $iconClass; ?>">
-                            <i class="fa-solid <?= $icon; ?> text-[10px]"></i>
-                        </div>
-                        <div class="flex-1 pt-1">
-                            <p class="text-sm font-medium text-slate-800 leading-tight"><?= htmlspecialchars($act['title']); ?></p>
-                            <p class="text-xs text-slate-400 mt-1"><?= date('H:i, d-M', strtotime($act['created_at'])); ?></p>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-                <?php if (empty($stats['recent_activity'])): ?>
-                    <p class="text-center text-sm text-slate-400 py-10">Ma'lumot mavjud emas</p>
-                <?php endif; ?>
-            </div>
-            <div class="mt-6">
-                <button class="w-full py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-all">
-                    Barchasini ko'rish
-                </button>
-            </div>
+        <!-- Status Date Header matching sample -->
+        <div class="text-center my-3">
+            <span class="inline-block text-xs md:text-sm font-bold text-slate-800 tracking-wide">
+                Holati: <?= !empty($stats['student_timeline']['today_str']) ? htmlspecialchars($stats['student_timeline']['today_str']) : date('Y-m-d l d-F'); ?>
+            </span>
+        </div>
+
+        <div class="flex-1 min-h-[340px] relative">
+            <canvas id="dashboardChart"></canvas>
         </div>
     </div>
 
-    <!-- Bottom Section: Competitions & Course Dist -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Bottom Section: Competitions, Course Dist & Recent Activity -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Upcoming Competitions -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <h3 class="font-bold text-slate-800 mb-6 flex items-center justify-between">
@@ -310,30 +283,118 @@
     const ctx = document.getElementById('dashboardChart');
     if (!ctx) return;
     
-    const dist = <?= json_encode($stats['result_distribution'] ?? []); ?>;
-    
-    new Chart(ctx, {
-        type: 'bar',
+    const timeline = <?= json_encode($stats['student_timeline'] ?? [
+        'monthly' => ['labels' => [], 'values' => []],
+        'daily' => ['labels' => [], 'values' => []]
+    ], JSON_UNESCAPED_UNICODE); ?>;
+
+    const canvas = ctx.getContext('2d');
+    let gradient = canvas.createLinearGradient(0, 0, 0, 320);
+    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.35)');
+    gradient.addColorStop(0.65, 'rgba(59, 130, 246, 0.10)');
+    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.00)');
+
+    let currentMode = 'monthly';
+
+    const chart = new Chart(ctx, {
+        type: 'line',
         data: {
-            labels: ['1-o\'rin', '2-o\'rin', '3-o\'rin'],
+            labels: timeline.monthly?.labels || [],
             datasets: [{
-                label: 'Natijalar soni',
-                data: [dist.first || 0, dist.second || 0, dist.third || 0],
-                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
-                borderRadius: 12,
-                maxBarThickness: 45
+                label: 'Kelib tushgan talabalar',
+                data: timeline.monthly?.values || [],
+                borderColor: '#3b82f6',
+                borderWidth: 2.8,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.45,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#3b82f6',
+                pointBorderWidth: 2.5,
+                pointHoverBackgroundColor: '#2563eb',
+                pointHoverBorderColor: '#ffffff',
+                pointHoverBorderWidth: 2.5
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#ffffff',
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyColor: '#e2e8f0',
+                    bodyFont: { size: 12 },
+                    padding: 10,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    boxWidth: 10,
+                    boxHeight: 10,
+                    callbacks: {
+                        label: function(context) {
+                            return ' Kelib tushgan talabalar: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
             scales: {
-                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1 } },
-                x: { grid: { display: false } }
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#f1f5f9',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 11 },
+                        precision: 0
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        color: '#94a3b8',
+                        font: { size: 11 },
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
             }
         }
     });
+
+    const btnMonthly = document.getElementById('chartModeMonthly');
+    const btnDaily = document.getElementById('chartModeDaily');
+
+    function updateMode(mode) {
+        if (currentMode === mode) return;
+        currentMode = mode;
+        if (mode === 'monthly') {
+            btnMonthly.className = 'px-3.5 py-1.5 rounded-lg bg-white text-blue-600 shadow-sm transition-all font-semibold';
+            btnDaily.className = 'px-3.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all font-normal';
+            chart.data.labels = timeline.monthly?.labels || [];
+            chart.data.datasets[0].data = timeline.monthly?.values || [];
+        } else {
+            btnDaily.className = 'px-3.5 py-1.5 rounded-lg bg-white text-blue-600 shadow-sm transition-all font-semibold';
+            btnMonthly.className = 'px-3.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition-all font-normal';
+            chart.data.labels = timeline.daily?.labels || [];
+            chart.data.datasets[0].data = timeline.daily?.values || [];
+        }
+        chart.update();
+    }
+
+    btnMonthly?.addEventListener('click', () => updateMode('monthly'));
+    btnDaily?.addEventListener('click', () => updateMode('daily'));
 
     // Project Status Chart (Dashboard)
     const psCtx = document.getElementById('projectStatusChart');

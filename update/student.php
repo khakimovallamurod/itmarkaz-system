@@ -46,6 +46,7 @@ try {
     }
 
     $db->commit();
+    log_admin_activity($db, 'student_update', 'students', "Talaba ma'lumotlari yangilandi: {$fio} (ID: #{$id})", $id);
 } catch (Throwable $e) {
     $db->rollback();
     json_response(false, 'Talabani yangilashda xatolik yuz berdi.');

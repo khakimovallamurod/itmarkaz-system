@@ -7,4 +7,6 @@ if ($id < 1) {
 $stmt = $db->prepare('DELETE FROM students WHERE id = ?');
 $stmt->bind_param('i', $id);
 $stmt->execute();
+cache_set('dashboard_stats', null);
+log_admin_activity($db, 'student_delete', 'students', "Talaba o'chirildi (ID: #{$id})", $id);
 json_response(true, 'Talaba o\'chirildi.');

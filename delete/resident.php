@@ -11,6 +11,7 @@ try {
         $db->query("DELETE FROM residents WHERE id = $id");
         $db->query("DELETE FROM student_status WHERE student_id = $studentId AND status_id = (SELECT id FROM statuses WHERE name = 'Rezident' LIMIT 1)");
         $db->query("INSERT IGNORE INTO student_status (student_id, status_id) VALUES ($studentId, (SELECT id FROM statuses WHERE name = 'Talaba' LIMIT 1))");
+        log_admin_activity($db, 'resident_delete', 'residents', "Rezidentlikdan chiqarildi (Talaba ID: #{$studentId})", $studentId);
     }
     $db->commit();
     json_response(true, 'Rezident o\'chirildi va statusi yangilandi');

@@ -19,6 +19,7 @@ $stmt = $db->prepare("DELETE FROM payments WHERE id = ?");
 $stmt->bind_param('i', $id);
 
 if ($stmt->execute()) {
+    log_admin_activity($db, 'payment_delete', 'payments', "To'lov o'chirildi (ID: #{$id})", $id);
     @unlink(__DIR__ . '/../cache/' . md5('dashboard_stats') . '.cache');
     json_response(true, 'To\'lov o\'chirildi');
 } else {
